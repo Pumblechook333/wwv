@@ -45,10 +45,10 @@ for line in lines[19::n]:
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Filtering the data with order 3 Butterworth low-pass filter
-# Something is wrong with this filter. Bad sampling rate?
+# Butterworth Order: https://rb.gy/l4pfm
 
-FILTERBREAK = .005
-FILTERORDER = 6
+FILTERORDER = 3     # Order (Falloff Rate)
+FILTERBREAK = .005  # Critical Freq. (Freq to begin falloff)
 b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
 
 freq_filt = filtfilt(b, a, freq)
