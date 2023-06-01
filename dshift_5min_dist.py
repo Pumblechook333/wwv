@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from scipy.signal import filtfilt, butter
 from collections import Counter
+from math import floor
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Read file, Initiate Containers
@@ -58,14 +59,15 @@ index = 0
 
 for srange in f_subranges:
 
-    print('Resolving subrange: ' + index)
+    print('Resolving subrange: ' + str(index) + ' ('
+          + str(floor((index / N) * 100)) + '% complete)')
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Counting individual occurrences
 
-    f_counts = Counter(srange)
-    f_keys = f_counts.keys()
-    f_values = f_counts.values()
+    # f_counts = Counter(srange)
+    # f_keys = f_counts.keys()
+    # f_values = f_counts.values()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Plot the subsections
@@ -75,14 +77,14 @@ for srange in f_subranges:
     ax1.hist(srange, color='r', bins=int(N_ranges/(5*6)))         # 10s long bins
     ax1.set_xlabel('Doppler Shift, Hz')
     ax1.set_ylabel('Counts, N (10 sec bin)', color='r')
-    ax1.set_xlim([-1, 1])
-    for tl in ax1.get_yticklabels():
-        tl.set_color('r')
+    # ax1.set_xlim([-1, 1])
+    # for tl in ax1.get_yticklabels():
+    #     tl.set_color('r')
 
-    ax2 = ax1.twinx()
-    ax2.scatter(f_keys, f_values, s=5, marker='*', color='k')
-    ax2.set_ylabel('Counts, N', color='k')
-    ax2.set_ylim(0, 3)                   # -1 to 1 Hz for Doppler shift
+    # ax2 = ax1.twinx()
+    # ax2.scatter(f_keys, f_values, s=5, marker='*', color='k')
+    # ax2.set_ylabel('Counts, N', color='k')
+    # ax2.set_ylim(0, 3)                   # -1 to 1 Hz for Doppler shift
 
     plt.title('WWV 10 MHz Doppler Shift Distribution Plot ' + str(index) + ' \n'                   # Title (top)
               'Node: N0000020    Gridsquare: FN20vr \n'
