@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from scipy.signal import filtfilt, butter
+from collections import Counter
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Read file, Initiate Containers
@@ -64,31 +65,38 @@ f_range = [(f-10e6) for f in freq_filt]                      # Doppler shifts (d
 Vdb_range = [10*np.log10(v**2) for v in Vpk_filt]            # Relative power (Power is proportional to V^2; dB)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Plot the filtered Data
+# Counting individual occurrences
+
+f_counts = Counter(f_range)
+f_keys = f_counts.keys()
+f_values = f_counts.values()
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Plot the count data
+
+N = len(f_range)
 
 fig = plt.figure(figsize=(19, 10))      # inches x, y with 72 dots per inch
 ax1 = fig.add_subplot(111)
-ax1.plot(t_range, f_range, 'k')         # color k for black
-ax1.set_xlabel('UTC Hour')
-ax1.set_ylabel('Doppler shift, Hz')
-ax1.set_xlim(0, 24)                     # UTC day
-ax1.set_ylim([-1, 1])                   # -1 to 1 Hz for Doppler shift
-#
-ax2 = ax1.twinx()
-ax2.plot(t_range, Vdb_range, 'r-')                  # NOTE: Set for filtered version
-ax2.set_ylabel('Power in relative dB', color='r')
-ax2.set_ylim(-80, 0)                                # Try these as defaults to keep graphs similar.
-                                                    # following lines set ylim for power readings in file
-# ax2.set_ylim(min_power, max_power) #as determined above for this data set
-for tl in ax2.get_yticklabels():
+ax1.hist(f_range, color='r', bins=int(N/(60*5)))         # color k for black
+ax1.set_xlabel('Doppler Shift, Hz')
+ax1.set_ylabel('Counts, N (5 min bin)', color='r')
+ax1.set_xlim([-1, 1])
+for tl in ax1.get_yticklabels():
     tl.set_color('r')
 
+ax2 = ax1.twinx()
+ax2.scatter(f_keys, f_values, s=5, marker='*', color='k')
+ax2.set_ylabel('Counts, N', color='k')
+ax2.set_ylim(0, 3)                   # -1 to 1 Hz for Doppler shift
 
-plt.title('WWV 10 MHz Doppler Shift Plot \n'                   # Title (top)
+
+plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'                   # Title (top)
           'Node: N0000020    Gridsquare: FN20vr \n'
           'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
           '2021-03-24 UTC',
           fontsize='10')
-plt.savefig('butter_filt.png', dpi=250, orientation='landscape')
+plt.savefig('dshift_dist_plot.png', dpi=250, orientation='landscape')
 
 # plt.show()
+
