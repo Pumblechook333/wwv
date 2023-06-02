@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
-import numpy as np
-from scipy.signal import filtfilt, butter
-from collections import Counter
+# from scipy.signal import filtfilt, butter
+# from collections import Counter
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Read file, Initiate Containers
@@ -33,50 +32,43 @@ for line in lines[19::n]:
 # Filtering the data with order 3 Butterworth low-pass filter
 # Butterworth Order: https://rb.gy/l4pfm
 
-FILTERORDER = 3     # Order (Falloff Rate)
-FILTERBREAK = .005  # Critical Freq. (Freq to begin falloff)
-b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
-
-freq_filt = filtfilt(b, a, freq)
+# FILTERORDER = 3     # Order (Falloff Rate)
+# FILTERBREAK = .005  # Critical Freq. (Freq to begin falloff)
+# b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
+#
+# freq_filt = filtfilt(b, a, freq)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Converting data to correct units
 
-f_range = [(f-10e6) for f in freq_filt]                      # Doppler shifts (del from 10GHz)
+f_range = [(f-10e6) for f in freq]                      # Doppler shifts (del from 10GHz)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Counting individual occurrences
 
-f_counts = Counter(f_range)
-f_keys = f_counts.keys()
-f_values = f_counts.values()
+# f_counts = Counter(f_range)
+# f_keys = f_counts.keys()
+# f_values = f_counts.values()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plot the count data
 
-N = len(f_range)
+binlims = [i/10 for i in range(-25, 26, 1)]     # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
-fig = plt.figure(figsize=(19, 10))      # inches x, y with 72 dots per inch
+fig = plt.figure(figsize=(19, 10))              # inches x, y with 72 dots per inch
 ax1 = fig.add_subplot(111)
-ax1.hist(f_range, color='r', bins=int(N/(60*5)))         # color k for black
+ax1.hist(f_range, color='r', edgecolor='k', bins=binlims)
 ax1.set_xlabel('Doppler Shift, Hz')
-ax1.set_ylabel('Counts, N (5 min bin)', color='r')
-ax1.set_xlim([-1, 1])
-for tl in ax1.get_yticklabels():
-    tl.set_color('r')
-
-ax2 = ax1.twinx()
-ax2.scatter(f_keys, f_values, s=5, marker='*', color='k')
-ax2.set_ylabel('Counts, N', color='k')
-ax2.set_ylim(0, 3)                   # -1 to 1 Hz for Doppler shift
-
+ax1.set_ylabel('Counts, N', color='r')
+ax1.set_xlim([-2.5, 2.5])                       # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+ax1.set_xticks(binlims[::2])
 
 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'                   # Title (top)
           'Node: N0000020    Gridsquare: FN20vr \n'
           'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
           '2021-03-24 UTC',
           fontsize='10')
-plt.savefig('dshift_dist_plot.png', dpi=250, orientation='landscape')
+plt.savefig('dshift_dist_unfilt_plot.png', dpi=250, orientation='landscape')
 
 # plt.show()
 
