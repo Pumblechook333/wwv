@@ -1,32 +1,9 @@
 import matplotlib.pyplot as plt
 # from scipy.signal import filtfilt, butter
 from math import floor
+from grape import *
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Read file, Initiate Containers
-
-# Initializing freq array
-freq = []
-
-# Open text file and store all of the lines
-f = open("wwv_data.txt")
-lines = f.readlines()
-f.close()
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Load data
-
-# Save the header data separately from the plottable data
-header_data = lines[:18]
-for i in header_data:
-    print(i)
-col_title = lines[18].split()   # Titles for each data range
-
-# Read each line of file after the header
-n = 1                                      # Subsampling term (read every nth term)
-for line in lines[19::n]:
-    holder = line.split()
-    freq.append(float(holder[1]))           # doppler shift list append
+time, freq, Vpk = Grape('wwv_data.txt').getTFV()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Filtering the data with order 3 Butterworth low-pass filter
@@ -45,8 +22,9 @@ f_range = [(f-10e6) for f in freq]                      # Doppler shifts (del fr
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Make subsections and begin plot generation
-f_subranges = []            # contains equally sized ranges of data
-rangewidth = 60*5           # make each range 5-minute long
+f_subranges = []             # contains equally sized ranges of data
+# rangewidth = 60*5          # make each range 5-minute long
+rangewidth = 60*60           # make each range 5-minute long
 
 index = 0
 while not index > len(f_range):
@@ -54,7 +32,8 @@ while not index > len(f_range):
     index += rangewidth
 
 f_hours = []                # contains 24 hour chunks of data
-rangewidth = 12             # 12 5-minute chunks each
+# rangewidth = 12           # 12 5-minute chunks each
+rangewidth = 1              # 1 60-minute chunk each
 
 index = 0
 while not index > len(f_subranges):
