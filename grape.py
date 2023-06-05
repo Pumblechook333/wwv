@@ -19,19 +19,24 @@ class Grape:
         :param convun: Boolean for if you want a unit range to be auto created (default = T)
         :param n: Subsampling term
         """
+
+        # Raw data containers
         self.time = None
         self.freq = None
         self.Vpk = None
-        self.Vdb = None
+        self.Vdb = None         # Vpk converted to logscale
 
+        # Raw data adjusted to be plotted with correct units
         self.t_range = None
         self.f_range = None
         self.Vdb_range = None
 
+        # Counting variables for collections.counter
         self.f_count = None
         self.Vpk_count = None
         self.Vdb_count = None
 
+        # Flags to keep track of if the load() or units() function have been called, respectively
         self.loaded = False
         self.converted = False
 
@@ -53,7 +58,6 @@ class Grape:
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Initializing time, freq and voltage arrays
-
         self.time = []
         self.freq = []
         self.Vpk = []
@@ -81,10 +85,11 @@ class Grape:
                   (float(utc_time[1]) * 60) + \
                   (float(utc_time[2][0:2]))
 
-            self.time.append(sec)  # time list append
+            self.time.append(sec)               # time list append
             self.freq.append(float(holder[1]))  # doppler shift list append
-            self.Vpk.append(float(holder[2]))  # voltage list append
+            self.Vpk.append(float(holder[2]))   # voltage list append
 
+        # Raise loaded flag
         self.loaded = True
 
     def getTFV(self):
@@ -104,7 +109,6 @@ class Grape:
 
         :return: time, freq and Vdb ranges
         """
-
         if self.converted:
             return self.t_range, self.f_range, self.Vdb_range
         else:
@@ -120,9 +124,9 @@ class Grape:
         :return: None
         """
 
-        b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
-
         if self.loaded:
+            b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
+
             self.freq = filtfilt(b, a, self.freq)
             self.Vpk = filtfilt(b, a, self.Vpk)
         else:
@@ -180,8 +184,9 @@ class Grape:
             plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
             plt.close()
         else:
-            print('Data units not yet converted!')
-            print('Attempting unit conversion...')
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
             self.units()
 
     def distPlot(self, valname, figname):
@@ -224,8 +229,9 @@ class Grape:
             else:
                 print("Please provide a valid valname!")
         else:
-            print('Data units not yet converted!')
-            print('Attempting unit conversion...')
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
             self.units()
 
     def count(self):
@@ -240,6 +246,7 @@ class Grape:
             self.Vpk_count = Counter(self.Vpk)
             self.Vdb_count = Counter(self.Vdb_range)
         else:
-            print('Data units not yet converted!')
-            print('Attempting unit conversion...')
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
             self.units()
