@@ -3,7 +3,6 @@ from scipy.signal import filtfilt, butter
 from collections import Counter
 import numpy as np
 from math import floor
-import os
 import csv
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
@@ -22,6 +21,9 @@ class Grape:
         :param convun: Boolean for if you want a unit range to be auto created (default = T)
         :param n: Subsampling term
         """
+
+        # Metadata containers
+        self.date = None
 
         # Raw data containers
         self.time = None
@@ -77,6 +79,8 @@ class Grape:
         for i in header_data:
             print(i)
         # col_title = lines[18].split()               # Titles for each data range
+
+        self.date = str(header_data[0][1]).split('T')[0]
 
         # Read each line of file after the header
         for line in lines[19::n]:
@@ -180,7 +184,7 @@ class Grape:
             plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
                       'Node: N0000020    Gridsquare: FN20vr \n'
                       'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                      '2021-03-24 UTC',
+                      + self.date + ' UTC',
                       fontsize='10')
             plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
             plt.close()
@@ -223,7 +227,7 @@ class Grape:
                 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
                           'Node: N0000020    Gridsquare: FN20vr \n'
                           'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                          '2021-03-24 UTC',
+                          + self.date + ' UTC',
                           fontsize='10')
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
                 plt.close()
@@ -291,9 +295,9 @@ class Grape:
 
                         plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
                                   'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                             'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                             'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                                                                                             '2021-03-24 UTC',
+                                  'Node: N0000020    Gridsquare: FN20vr \n'
+                                  'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                  + self.date + ' UTC',
                                   fontsize='10')
                         # plt.savefig('dshift_5min_dist_plots_unfiltered/dshift_dist_plot_hr' + str(indexhr) + 'bin' + str(index) + '(' + str(count) + ').png', dpi=250, orientation='landscape')
                         plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
