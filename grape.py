@@ -3,6 +3,8 @@ from scipy.signal import filtfilt, butter
 from collections import Counter
 import numpy as np
 from math import floor
+import os
+import csv
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -63,10 +65,10 @@ class Grape:
         self.freq = []
         self.Vpk = []
 
-        # Open text file and store all of the lines
-        f = open(filename)
-        lines = f.readlines()
-        f.close()
+
+        dataFile = open(filename)
+        dataReader = csv.reader(dataFile)
+        lines = list(dataReader)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Save the header data separately from the plottable data
@@ -78,17 +80,15 @@ class Grape:
 
         # Read each line of file after the header
         for line in lines[19::n]:
-            holder = line.split()
-
-            date_time = holder[0].split('T')
-            utc_time = date_time[1].split(':')
+            date_time = str(line[0]).split('T')
+            utc_time = str(date_time[1]).split(':')
             sec = (float(utc_time[0]) * 3600) + \
                   (float(utc_time[1]) * 60) + \
                   (float(utc_time[2][0:2]))
 
             self.time.append(sec)               # time list append
-            self.freq.append(float(holder[1]))  # doppler shift list append
-            self.Vpk.append(float(holder[2]))   # voltage list append
+            self.freq.append(float(line[1]))  # doppler shift list append
+            self.Vpk.append(float(line[2]))   # voltage list append
 
         # Raise loaded flag
         self.loaded = True
@@ -235,7 +235,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlots(self, valname, figname, secrange=60*5, minrange=12):
+    def distPlots(self, valname, figname='dshift_dist_plot', dirname='dshift_dist_plots', secrange=60*5, minrange=12):
 
         if self.converted:
             if valname in fnames:
@@ -296,13 +296,14 @@ class Grape:
                                                                                              '2021-03-24 UTC',
                                   fontsize='10')
                         # plt.savefig('dshift_5min_dist_plots_unfiltered/dshift_dist_plot_hr' + str(indexhr) + 'bin' + str(index) + '(' + str(count) + ').png', dpi=250, orientation='landscape')
-                        plt.savefig('dshift_1hr_dist_plots/dshift_dist_plot' + str(count) + '.png', dpi=250,
+                        plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
                                     orientation='landscape')
                         count += 1
 
                         plt.close()
 
                         index += 1
+
             else:
                 print("Please provide a valid valname!")
         else:
