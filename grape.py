@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import filtfilt, butter
 from collections import Counter
 import numpy as np
+from math import floor
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -15,7 +16,7 @@ class Grape:
         Constructor for a Grape object
 
         :param filename: Name of the .txt file where the data is kept in tab delimited format
-        :param filt: Boolean for if you are filtering or not (default F)
+        :param filt: Boolean for if you are filtering or not (default = F)
         :param convun: Boolean for if you want a unit range to be auto created (default = T)
         :param n: Subsampling term
         """
@@ -226,6 +227,82 @@ class Grape:
                           fontsize='10')
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
                 plt.close()
+            else:
+                print("Please provide a valid valname!")
+        else:
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
+            self.units()
+
+    def distPlots(self, valname, figname, secrange=60*5, minrange=12):
+
+        if self.converted:
+            if valname in fnames:
+                vals = self.f_range
+            elif valname in vnames:
+                vals = self.Vpk
+            elif valname in pnames:
+                vals = self.Vdb_range
+            else:
+                vals = None
+
+            if vals:
+                # Make subsections and begin plot generation
+                subranges = []  # contains equally sized ranges of data
+
+                index = 0
+                while not index > len(vals):
+                    subranges.append(vals[index:index + secrange])
+                    index += secrange
+
+                hours = []  # contains 24 hour chunks of data
+
+                index = 0
+                while not index > len(subranges):
+                    hours.append(subranges[index:index + minrange])
+                    index += minrange
+
+                count = 0
+                indexhr = 0
+                for hour in hours:
+                    print('\nResolving hour: ' + str(indexhr) + ' ('
+                          + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                          + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                    indexhr += 1
+
+                    index = 0
+                    for srange in hour:
+                        print('Resolving subrange: ' + str(index) + ' ('
+                              + str(floor((index / len(hour)) * 100)) + '% complete)')
+
+                        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                        # Plot the subsections
+                        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+
+                        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                        ax1 = fig.add_subplot(111)
+                        ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
+                        ax1.set_xlabel('Doppler Shift, Hz')
+                        ax1.set_ylabel('Counts, N', color='r')
+                        ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        ax1.set_ylim([0, 500])
+                        ax1.set_xticks(binlims[::2])
+
+                        plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                                  'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                                                                                             'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                             'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                                                                             '2021-03-24 UTC',
+                                  fontsize='10')
+                        # plt.savefig('dshift_5min_dist_plots_unfiltered/dshift_dist_plot_hr' + str(indexhr) + 'bin' + str(index) + '(' + str(count) + ').png', dpi=250, orientation='landscape')
+                        plt.savefig('dshift_1hr_dist_plots/dshift_dist_plot' + str(count) + '.png', dpi=250,
+                                    orientation='landscape')
+                        count += 1
+
+                        plt.close()
+
+                        index += 1
             else:
                 print("Please provide a valid valname!")
         else:
