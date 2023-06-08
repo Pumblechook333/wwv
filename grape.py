@@ -370,7 +370,9 @@ class Grape:
 class GrapeHandler:
     def __init__(self, dirname):
         self.grapes = []
-        self.date = None
+        self.valscomb = []
+        self.month = None
+        self.valslength = None
 
         if os.path.exists(dirname):
             # assign directory
@@ -387,27 +389,54 @@ class GrapeHandler:
             for filename in filenames:
                 self.grapes.append(Grape(filename))
 
-            self.date = self.grapes[0].date     # Attributes the date of the first grape
+            self.month = self.grapes[0].date[0:7]     # Attributes the date of the first grape
+
+            self.valscomb = []
+
+            for grape in self.grapes:
+                vals = grape.getTFPr()  # get time, freq and power from grape
+                vals = vals[1]  # select just the freq
+                self.valscomb.append(vals)
+
+            self.valslength = len(vals)
+
         else:
             print('That directory does not exist on the local path! \n'
                   'Please try again.')
 
+    def multGrapeDistPlot(self, figname):
+
+        valscombline = []
+        for i in self.valscomb:
+            valscombline += i
+
+        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+
+        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        ax1 = fig.add_subplot(111)
+        ax1.hist(valscombline, color='r', edgecolor='k', bins=binlims)
+        ax1.set_xlabel('Doppler Shift, Hz')
+        ax1.set_ylabel('Counts, N', color='r')
+        ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.set_xticks(binlims[::2])
+
+        plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
+                  'Node: N0000020    Gridsquare: FN20vr \n'
+                  'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                  + self.month + ' UTC',
+                  fontsize='10')
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.close()
+
     def multGrapeDistPlots(self, dirname, figname, secrange=60 * 5, minrange=12):
-
-        valscomb = []
-
-        for grape in self.grapes:
-            vals = grape.getTFPr()  # get time, freq and power from grape
-            vals = vals[1]          # select just the freq
-            valscomb.append(vals)
 
         # Make subsections and begin plot generation
         subranges = []  # contains equally sized ranges of data
 
         index = 0
-        while not index > len(vals):
+        while not index > self.valslength:
             secs = []
-            for vals in valscomb:
+            for vals in self.valscomb:
                 secs += vals[index:index+secrange]
             subranges.append(secs)
             index += secrange
@@ -452,7 +481,7 @@ class GrapeHandler:
                           'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
                           'Node: N0000020    Gridsquare: FN20vr \n'
                           'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                          + self.date + ' UTC',
+                          + self.month + ' UTC',
                           fontsize='10')
 
                 plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
