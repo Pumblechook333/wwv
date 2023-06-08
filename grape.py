@@ -4,6 +4,9 @@ from collections import Counter
 import numpy as np
 from math import floor
 import csv
+import os
+import imageio
+import re
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -29,7 +32,7 @@ class Grape:
         self.time = None
         self.freq = None
         self.Vpk = None
-        self.Vdb = None         # Vpk converted to logscale
+        self.Vdb = None  # Vpk converted to logscale
 
         # Raw data adjusted to be plotted with correct units
         self.t_range = None
@@ -67,7 +70,6 @@ class Grape:
         self.freq = []
         self.Vpk = []
 
-
         dataFile = open(filename)
         dataReader = csv.reader(dataFile)
         lines = list(dataReader)
@@ -76,8 +78,8 @@ class Grape:
         # Save the header data separately from the plottable data
 
         header_data = lines[:18]
-        for i in header_data:
-            print(i)
+        # for i in header_data:
+        #     print(i)
         # col_title = lines[18].split()               # Titles for each data range
 
         self.date = str(header_data[0][1]).split('T')[0]
@@ -90,9 +92,9 @@ class Grape:
                   (float(utc_time[1]) * 60) + \
                   (float(utc_time[2][0:2]))
 
-            self.time.append(sec)               # time list append
+            self.time.append(sec)  # time list append
             self.freq.append(float(line[1]))  # doppler shift list append
-            self.Vpk.append(float(line[2]))   # voltage list append
+            self.Vpk.append(float(line[2]))  # voltage list append
 
         # Raise loaded flag
         self.loaded = True
@@ -104,7 +106,7 @@ class Grape:
         :return: time, freq and Vpk values
         """
         if self.loaded:
-            return self.time, self.freq, self.Vpk
+            return [self.time, self.freq, self.Vpk]
         else:
             return None, None, None
 
@@ -115,7 +117,7 @@ class Grape:
         :return: time, freq and Vdb ranges
         """
         if self.converted:
-            return self.t_range, self.f_range, self.Vdb_range
+            return [self.t_range, self.f_range, self.Vdb_range]
         else:
             return None, None, None
 
@@ -130,6 +132,7 @@ class Grape:
         """
 
         if self.loaded:
+            # noinspection PyTupleAssignmentBalance
             b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
 
             self.freq = filtfilt(b, a, self.freq)
@@ -149,7 +152,8 @@ class Grape:
         if self.loaded:
             self.t_range = [(t / timediv) for t in self.time]  # Time range (Hours)
             self.f_range = [(f - fdel) for f in self.freq]  # Doppler shifts (del from 10GHz)
-            self.Vdb_range = [10 * np.log10(v ** 2) for v in self.Vpk]  # Relative power (Power is proportional to V^2; dB)
+            self.Vdb_range = [10 * np.log10(v ** 2) for v in
+                              self.Vpk]  # Relative power (Power is proportional to V^2; dB)
 
             self.converted = True
         else:
@@ -239,7 +243,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlots(self, valname, figname='dshift_dist_plot', dirname='dshift_dist_plots', secrange=60*5, minrange=12):
+    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', secrange=60 * 5, minrange=12):
 
         if self.converted:
             if valname in fnames:
@@ -267,13 +271,16 @@ class Grape:
                     hours.append(subranges[index:index + minrange])
                     index += minrange
 
+                # initializes directory on local path if it does not exist
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
+
                 count = 0
                 indexhr = 0
                 for hour in hours:
                     print('\nResolving hour: ' + str(indexhr) + ' ('
                           + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
                           + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-                    indexhr += 1
 
                     index = 0
                     for srange in hour:
@@ -290,7 +297,6 @@ class Grape:
                         ax1.set_xlabel('Doppler Shift, Hz')
                         ax1.set_ylabel('Counts, N', color='r')
                         ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                        ax1.set_ylim([0, 500])
                         ax1.set_xticks(binlims[::2])
 
                         plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
@@ -299,7 +305,7 @@ class Grape:
                                   'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                                   + self.date + ' UTC',
                                   fontsize='10')
-                        # plt.savefig('dshift_5min_dist_plots_unfiltered/dshift_dist_plot_hr' + str(indexhr) + 'bin' + str(index) + '(' + str(count) + ').png', dpi=250, orientation='landscape')
+
                         plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
                                     orientation='landscape')
                         count += 1
@@ -308,6 +314,7 @@ class Grape:
 
                         index += 1
 
+                    indexhr += 1
             else:
                 print("Please provide a valid valname!")
         else:
@@ -332,3 +339,128 @@ class Grape:
                   'Attempting unit conversion... \n'
                   'Please try again.')
             self.units()
+
+    def movie(self, dirname, gifname, fps=10):
+
+        if os.path.exists(dirname):
+            # assign directory
+            directory = dirname
+
+            filenames = []
+            # iterate over files in that directory
+            for filename in os.scandir(directory):
+                if filename.is_file():
+                    filenames.append('./' + directory + '/' + filename.name)
+
+            filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+
+            frames = []
+            for t in range(0, 275):
+                image = imageio.v2.imread(filenames[t])
+                frames.append(image)
+
+            imageio.mimsave('./' + gifname + '.gif',  # output gif
+                            frames,  # array of input frames
+                            fps=fps)  # optional: frames per second
+        else:
+            print('That directory does not exist on the local path! \n'
+                  'Please try again.')
+
+
+class GrapeHandler:
+    def __init__(self, dirname):
+        self.grapes = []
+        self.date = None
+
+        if os.path.exists(dirname):
+            # assign directory
+            directory = dirname
+
+            filenames = []
+            # iterate over files in that directory
+            for filename in os.scandir(directory):
+                if filename.is_file():
+                    filenames.append('./' + directory + '/' + filename.name)
+
+            filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+
+            for filename in filenames:
+                self.grapes.append(Grape(filename))
+
+            self.date = self.grapes[0].date     # Attributes the date of the first grape
+        else:
+            print('That directory does not exist on the local path! \n'
+                  'Please try again.')
+
+    def multGrapeDistPlots(self, dirname, figname, secrange=60 * 5, minrange=12):
+
+        valscomb = []
+
+        for grape in self.grapes:
+            vals = grape.getTFPr()  # get time, freq and power from grape
+            vals = vals[1]          # select just the freq
+            valscomb.append(vals)
+
+        # Make subsections and begin plot generation
+        subranges = []  # contains equally sized ranges of data
+
+        index = 0
+        while not index > len(vals):
+            secs = []
+            for vals in valscomb:
+                secs += vals[index:index+secrange]
+            subranges.append(secs)
+            index += secrange
+
+        hours = []  # contains 24 hour chunks of data
+
+        index = 0
+        while not index > len(subranges):
+            hours.append(subranges[index:index + minrange])
+            index += minrange
+
+        # begin plot generation
+        # initializes directory on local path if it does not exist
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+
+        count = 0
+        indexhr = 0
+        for hour in hours:
+            print('\nResolving hour: ' + str(indexhr) + ' ('
+                  + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                  + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+            index = 0
+            for srange in hour:
+                print('Resolving subrange: ' + str(index) + ' ('
+                      + str(floor((index / len(hour)) * 100)) + '% complete)')
+
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                # Plot the subsections
+                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+
+                fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                ax1 = fig.add_subplot(111)
+                ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
+                ax1.set_xlabel('Doppler Shift, Hz')
+                ax1.set_ylabel('Counts, N', color='r')
+                ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.set_xticks(binlims[::2])
+
+                plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                          'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                          'Node: N0000020    Gridsquare: FN20vr \n'
+                          'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          + self.date + ' UTC',
+                          fontsize='10')
+
+                plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
+                            orientation='landscape')
+                count += 1
+
+                plt.close()
+
+                index += 1
+
+            indexhr += 1
