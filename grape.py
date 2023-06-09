@@ -3,10 +3,12 @@ from scipy.signal import filtfilt, butter
 from collections import Counter
 import numpy as np
 from math import floor
-import csv
+from csv import reader
 import os
 import imageio
-import re
+from re import sub
+from fitter import Fitter
+import pylab as pl
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -71,7 +73,7 @@ class Grape:
         self.Vpk = []
 
         dataFile = open(filename)
-        dataReader = csv.reader(dataFile)
+        dataReader = reader(dataFile)
         lines = list(dataReader)
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,6 +100,7 @@ class Grape:
 
         # Raise loaded flag
         self.loaded = True
+        print("Grape " + self.date + " loaded! \n")
 
     def getTFV(self):
         """
@@ -340,31 +343,154 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def movie(self, dirname, gifname, fps=10):
+    def distPlotFit(self, valname, figname):
+        if self.converted:
+            if valname in fnames:
+                vals = self.f_range
+            elif valname in vnames:
+                vals = self.Vpk
+            elif valname in pnames:
+                vals = self.Vdb_range
+            else:
+                vals = None
 
-        if os.path.exists(dirname):
-            # assign directory
-            directory = dirname
+            if vals:
+                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                best3 = ['dweibull', 'dgamma', 'laplace']
 
-            filenames = []
-            # iterate over files in that directory
-            for filename in os.scandir(directory):
-                if filename.is_file():
-                    filenames.append('./' + directory + '/' + filename.name)
+                f = Fitter(vals, bins=len(binlims), distributions=best3)
+                f.fit()
+                f.hist()
 
-            filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+                pl.xlabel('Doppler Shift, Hz')
+                pl.ylabel('Normalized Counts')
+                pl.xlim([-2.5, 2.5])  # Doppler Shift Range
+                pl.xticks(binlims[::2])
 
-            frames = []
-            for t in range(0, 275):
-                image = imageio.v2.imread(filenames[t])
-                frames.append(image)
+                pl.title('Fitted Doppler Shift Distribution \n'
+                         'Node: N0000020    Gridsquare: FN20vr \n'
+                         'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                         + self.date + ' UTC',
+                         fontsize='10')
+                pl.savefig(str(figname) + '.png', dpi=250,
+                           orientation='landscape')
+                pl.close()
 
-            imageio.mimsave('./' + gifname + '.gif',  # output gif
-                            frames,  # array of input frames
-                            fps=fps)  # optional: frames per second
+            else:
+                print("Please provide a valid valname!")
         else:
-            print('That directory does not exist on the local path! \n'
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
                   'Please try again.')
+            self.units()
+
+    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', secrange=60 * 5, minrange=12):
+
+        if self.converted:
+            if valname in fnames:
+                vals = self.f_range
+            elif valname in vnames:
+                vals = self.Vpk
+            elif valname in pnames:
+                vals = self.Vdb_range
+            else:
+                vals = None
+
+            if vals:
+                # Make subsections and begin plot generation
+                subranges = []  # contains equally sized ranges of data
+
+                index = 0
+                while not index > len(vals):
+                    subranges.append(vals[index:index + secrange])
+                    index += secrange
+
+                hours = []  # contains 24 hour chunks of data
+
+                index = 0
+                while not index > len(subranges):
+                    hours.append(subranges[index:index + minrange])
+                    index += minrange
+
+                # initializes directory on local path if it does not exist
+                if not os.path.exists(dirname):
+                    os.mkdir(dirname)
+
+                count = 0
+                indexhr = 0
+                for hour in hours:
+                    print('\nResolving hour: ' + str(indexhr) + ' ('
+                          + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                          + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+                    index = 0
+                    for srange in hour:
+                        print('Resolving subrange: ' + str(index) + ' ('
+                              + str(floor((index / len(hour)) * 100)) + '% complete)')
+
+                        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                        best3 = ['dweibull', 'dgamma', 'laplace']
+
+                        f = Fitter(srange, bins=len(binlims))
+                        f.fit()
+                        # print(f.summary())
+                        f.hist()
+
+                        pl.xlabel('Doppler Shift, Hz')
+                        pl.ylabel('Normalized Counts')
+                        pl.xlim(-2.5, 2.5)  # Doppler Shift Range
+                        pl.xticks(binlims[::2])
+
+                        pl.title('Fitted Doppler Shift Distribution \n'
+                                  'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                                  'Node: N0000020    Gridsquare: FN20vr \n'
+                                  'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                  + self.date + ' UTC',
+                                  fontsize='10')
+                        pl.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
+                                   orientation='landscape')
+                        pl.close()
+
+                        count += 1
+                        index += 1
+
+                    indexhr += 1
+            else:
+                print("Please provide a valid valname!")
+        else:
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
+            self.units()
+
+
+def movie(dirname, gifname, fps=10):
+
+    if os.path.exists(dirname):
+        # assign directory
+        directory = dirname
+
+        filenames = []
+        # iterate over files in that directory
+        for filename in os.scandir(directory):
+            if filename.is_file():
+                filenames.append('./' + directory + '/' + filename.name)
+
+        filenames.sort(key=lambda f: int(sub('\D', '', f)))
+
+        frames = []
+        for t in range(0, 275):
+            image = imageio.v2.imread(filenames[t])
+            frames.append(image)
+
+        imageio.mimsave('./' + gifname + '.gif',  # output gif
+                        frames,  # array of input frames
+                        fps=fps)  # optional: frames per second
+    else:
+        print('That directory does not exist on the local path! \n'
+              'Please try again.')
 
 
 class GrapeHandler:
@@ -384,7 +510,7 @@ class GrapeHandler:
                 if filename.is_file():
                     filenames.append('./' + directory + '/' + filename.name)
 
-            filenames.sort(key=lambda f: int(re.sub('\D', '', f)))
+            filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
             for filename in filenames:
                 self.grapes.append(Grape(filename))
@@ -393,11 +519,13 @@ class GrapeHandler:
 
             self.valscomb = []
 
+            vals = []
             for grape in self.grapes:
                 vals = grape.getTFPr()  # get time, freq and power from grape
                 vals = vals[1]  # select just the freq
                 self.valscomb.append(vals)
 
+            # noinspection PyTypeChecker
             self.valslength = len(vals)
 
         else:
@@ -493,3 +621,4 @@ class GrapeHandler:
                 index += 1
 
             indexhr += 1
+
