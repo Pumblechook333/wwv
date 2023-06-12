@@ -359,8 +359,10 @@ class Grape:
                 pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 best3 = ['dweibull', 'dgamma', 'laplace']
 
-                f = Fitter(vals, bins=len(binlims), distributions=best3)
+                f = Fitter(vals, bins=binlims, distributions=best3)
                 f.fit()
+                summary = f.summary()
+                print(summary)
                 f.hist()
 
                 pl.xlabel('Doppler Shift, Hz')
@@ -431,26 +433,30 @@ class Grape:
 
                         binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                         pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                        best3 = ['dweibull', 'dgamma', 'laplace']
+                        # best3 = ['dweibull', 'dgamma', 'laplace']
 
-                        f = Fitter(srange, bins=len(binlims))
+                        # f = Fitter(srange, bins=binlims, distributions=best3)
+                        f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                         f.fit()
-                        # print(f.summary())
+                        summary = f.summary()
+                        print(summary)
                         f.hist()
 
                         pl.xlabel('Doppler Shift, Hz')
                         pl.ylabel('Normalized Counts')
-                        pl.xlim(-2.5, 2.5)  # Doppler Shift Range
+                        pl.xlim([-2.5, 2.5])  # Doppler Shift Range
                         pl.xticks(binlims[::2])
 
                         pl.title('Fitted Doppler Shift Distribution \n'
-                                  'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                  'Node: N0000020    Gridsquare: FN20vr \n'
-                                  'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                                  + self.date + ' UTC',
-                                  fontsize='10')
-                        pl.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
-                                   orientation='landscape')
+                                'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                                'Node: N0000020    Gridsquare: FN20vr \n'
+                                'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                + self.date + ' UTC',
+                                fontsize='10')
+
+                        pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=250,
+                                  orientation='landscape')
+
                         pl.close()
 
                         count += 1
