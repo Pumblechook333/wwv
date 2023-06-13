@@ -36,10 +36,16 @@ class Grape:
         self.Vpk = None
         self.Vdb = None  # Vpk converted to logscale
 
+        self.freq_filt = None
+        self.Vpk_filt = None
+
         # Raw data adjusted to be plotted with correct units
         self.t_range = None
         self.f_range = None
         self.Vdb_range = None
+
+        self.f_range_filt = None
+        self.Vdb_range_filt = None
 
         # Counting variables for collections.counter
         self.f_count = None
@@ -49,6 +55,9 @@ class Grape:
         # Flags to keep track of if the load() or units() function have been called, respectively
         self.loaded = False
         self.converted = False
+        self.filtered = False
+
+        self.bestFits = None
 
         if filename:
             self.load(filename, n=n)
@@ -138,8 +147,10 @@ class Grape:
             # noinspection PyTupleAssignmentBalance
             b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
 
-            self.freq = filtfilt(b, a, self.freq)
-            self.Vpk = filtfilt(b, a, self.Vpk)
+            self.freq_filt = filtfilt(b, a, self.freq)
+            self.Vpk_filt = filtfilt(b, a, self.Vpk)
+
+            self.filtered = True
         else:
             print("Frequency and Vpk not loaded!")
 
@@ -157,7 +168,10 @@ class Grape:
             self.f_range = [(f - fdel) for f in self.freq]  # Doppler shifts (del from 10GHz)
             self.Vdb_range = [10 * np.log10(v ** 2) for v in
                               self.Vpk]  # Relative power (Power is proportional to V^2; dB)
-
+            if self.filtered:
+                self.f_range_filt = [(f - fdel) for f in self.freq_filt]  # Doppler shifts (del from 10GHz)
+                self.Vdb_range_filt = [10 * np.log10(v ** 2) for v in
+                                  self.Vpk_filt]  # Relative power (Power is proportional to V^2; dB)
             self.converted = True
         else:
             print('Time, frequency and Vpk not loaded!')
@@ -171,16 +185,19 @@ class Grape:
         """
 
         if self.converted:
+            frange = self.f_range if not self.filtered else self.f_range_filt
+            Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
+
             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
             ax1 = fig.add_subplot(111)
-            ax1.plot(self.t_range, self.f_range, 'k')  # color k for black
+            ax1.plot(self.t_range, frange, 'k')  # color k for black
             ax1.set_xlabel('UTC Hour')
             ax1.set_ylabel('Doppler shift, Hz')
             ax1.set_xlim(0, 24)  # UTC day
             ax1.set_ylim([-1, 1])  # -1 to 1 Hz for Doppler shift
 
             ax2 = ax1.twinx()
-            ax2.plot(self.t_range, self.Vdb_range, 'r-')  # NOTE: Set for filtered version
+            ax2.plot(self.t_range, Vdbrange, 'r-')  # NOTE: Set for filtered version
             ax2.set_ylabel('Power in relative dB', color='r')
             ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
             # following lines set ylim for power readings in file
@@ -419,6 +436,8 @@ class Grape:
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
 
+                self.bestFits = []
+
                 count = 0
                 indexhr = 0
                 for hour in hours:
@@ -440,6 +459,9 @@ class Grape:
                         f.fit()
                         summary = f.summary()
                         print(summary)
+
+                        self.bestFits.append(f.get_best())
+
                         f.hist()
 
                         pl.xlabel('Doppler Shift, Hz')
@@ -463,6 +485,106 @@ class Grape:
                         index += 1
 
                     indexhr += 1
+            else:
+                print("Please provide a valid valname!")
+        else:
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
+            self.units()
+
+    def bestFitsPlot(self, valname, figname, secrange=60 * 5, minrange=12):
+        if self.converted:
+            if valname in fnames:
+                vals = self.f_range
+            elif valname in vnames:
+                vals = self.Vpk
+            elif valname in pnames:
+                vals = self.Vdb_range
+            else:
+                vals = None
+
+            if vals:
+                # Make subsections and begin plot generation
+                subranges = []  # contains equally sized ranges of data
+
+                index = 0
+                while not index > len(vals):
+                    subranges.append(vals[index:index + secrange])
+                    index += secrange
+
+                hours = []  # contains 24 hour chunks of data
+
+                index = 0
+                while not index > len(subranges):
+                    hours.append(subranges[index:index + minrange])
+                    index += minrange
+
+                self.bestFits = []
+
+                indexhr = 0
+                # for hour in hours:
+                for hour in hours:
+                    print('\nResolving hour: ' + str(indexhr) + ' ('
+                          + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                          + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+                    index = 0
+                    for srange in hour:
+                        print('Resolving subrange: ' + str(index) + ' ('
+                              + str(floor((index / len(hour)) * 100)) + '% complete)')
+
+                        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        # best3 = ['dweibull', 'dgamma', 'laplace']
+
+                        # f = Fitter(srange, bins=binlims, distributions=best3)
+                        f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
+                        f.fit()
+                        self.bestFits.append(f.get_best())
+
+                        index += 1
+
+                    indexhr += 1
+
+                frange = self.f_range if not self.filtered else self.f_range_filt
+
+                fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                ax1 = fig.add_subplot(111)
+                ax1.plot(self.t_range, frange, 'k')  # color k for black
+                ax1.set_xlabel('UTC Hour')
+                ax1.set_ylabel('Doppler shift, Hz')
+                ax1.set_xlim(0, 24)  # UTC day
+                ax1.set_xticks(range(0, 25)[::2])
+                ax1.set_ylim([-1, 1])  # -1 to 1 Hz for Doppler shift
+                ax1.grid(axis='x', alpha=1)
+
+                fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
+                self.bestFits = [list(i.keys())[0] for i in self.bestFits]
+
+                ax2 = ax1.twinx()
+                ax2.scatter(fitTimeRange, self.bestFits, color='red')  # NOTE: Set for filtered version
+                ax2.set_ylabel('Best Fit PDF', color='red')
+                ax2.grid(axis='y', alpha=0.5)
+                for tl in ax2.get_yticklabels():
+                    tl.set_color('r')
+
+                # fitTimeRange = [(i/len(self.bestFits))*24 for i in range(0, len(self.bestFits))]
+                # self.bestFits = [list(i.keys())[0] for i in self.bestFits]
+                # plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                # plt.scatter(fitTimeRange, self.bestFits)
+                # plt.xlabel('UTC Hour')
+                # plt.ylabel('Best Fit PDF')
+                # plt.xlim(0, 24)  # UTC day
+
+                plt.title('WWV 10 MHz Doppler Shift Distribution PDFs \n'  # Title (top)
+                          'Node: N0000020    Gridsquare: FN20vr \n'
+                          'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          + self.date + ' UTC',
+                          fontsize='10')
+
+                plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+                plt.close()
+
             else:
                 print("Please provide a valid valname!")
         else:

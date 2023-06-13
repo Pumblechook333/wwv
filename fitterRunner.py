@@ -29,5 +29,6 @@ import grape
 # pl.savefig('jul1_fitted_test.png', dpi=250, orientation='landscape')
 # pl.close()
 
-g = grape.Grape('wwv_july_data/2021-07-01T000000Z_N0000020_G1_FN20vr_FRQ_WWV10.csv')
-g.distPlotsFit('f', 'july_dop_fits', 'july_dop_fit')
+g = grape.Grape('wwv_july_data/2021-07-01T000000Z_N0000020_G1_FN20vr_FRQ_WWV10.csv', filt=True)
+# g.distPlotsFit('f', 'dop_fit_test', 'july_dop_fit')
+g.bestFitsPlot('f', 'jul1_pdfs')
