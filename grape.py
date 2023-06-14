@@ -265,7 +265,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', secrange=60 * 5, minrange=12):
+    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5):
 
         if self.converted:
             if valname in fnames:
@@ -278,6 +278,9 @@ class Grape:
                 vals = None
 
             if vals:
+
+                secrange, minrange = mblHandle(minBinLen)
+
                 # Make subsections and begin plot generation
                 subranges = []  # contains equally sized ranges of data
 
@@ -406,8 +409,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', secrange=60 * 5,
-                     minrange=12):
+    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5):
 
         if self.converted:
             if valname in fnames:
@@ -420,6 +422,9 @@ class Grape:
                 vals = None
 
             if vals:
+
+                secrange, minrange = mblHandle(minBinLen)
+
                 # Make subsections and begin plot generation
                 subranges = []  # contains equally sized ranges of data
 
@@ -497,7 +502,7 @@ class Grape:
             self.units()
 
     # def bestFitsPlot(self, valname, figname, secrange=60 * 5, minrange=12):
-    def bestFitsPlot(self, valname, figname, minBinLen=5):  # TODO - make this change to minBinLen for other methods
+    def bestFitsPlot(self, valname, figname, minBinLen=5):
         if self.converted:
             if valname in fnames:
                 vals = self.f_range
@@ -608,32 +613,6 @@ class Grape:
             self.units()
 
 
-def movie(dirname, gifname, fps=10):
-    if os.path.exists(dirname):
-        # assign directory
-        directory = dirname
-
-        filenames = []
-        # iterate over files in that directory
-        for filename in os.scandir(directory):
-            if filename.is_file():
-                filenames.append('./' + directory + '/' + filename.name)
-
-        filenames.sort(key=lambda f: int(sub('\D', '', f)))
-
-        frames = []
-        for t in range(0, 275):
-            image = imageio.v2.imread(filenames[t])
-            frames.append(image)
-
-        imageio.mimsave('./' + gifname + '.gif',  # output gif
-                        frames,  # array of input frames
-                        fps=fps)  # optional: frames per second
-    else:
-        print('That directory does not exist on the local path! \n'
-              'Please try again.')
-
-
 class GrapeHandler:
     def __init__(self, dirname):
         self.grapes = []
@@ -696,7 +675,9 @@ class GrapeHandler:
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
 
-    def multGrapeDistPlots(self, dirname, figname, secrange=60 * 5, minrange=12):
+    def multGrapeDistPlots(self, dirname, figname, minBinLen=5):
+
+        secrange, minrange = mblHandle(minBinLen)
 
         # Make subsections and begin plot generation
         subranges = []  # contains equally sized ranges of data
@@ -761,3 +742,116 @@ class GrapeHandler:
                 index += 1
 
             indexhr += 1
+
+    def multGrapeFits(self, dirname, figname, minBinLen=5):
+
+        secrange, minrange = mblHandle(minBinLen)
+
+        # Make subsections and begin plot generation
+        subranges = []  # contains equally sized ranges of data
+
+        index = 0
+        while not index > self.valslength:
+            secs = []
+            for vals in self.valscomb:
+                secs += vals[index:index + secrange]
+            subranges.append(secs)
+            index += secrange
+
+        hours = []  # contains 24 hour chunks of data
+
+        index = 0
+        while not index > len(subranges):
+            hours.append(subranges[index:index + minrange])
+            index += minrange
+
+        # begin plot generation
+        # initializes directory on local path if it does not exist
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+
+        count = 0
+        indexhr = 0
+        for hour in hours:
+            print('\nResolving hour: ' + str(indexhr) + ' ('
+                  + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                  + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+
+            index = 0
+            for srange in hour:
+                print('Resolving subrange: ' + str(index) + ' ('
+                      + str(floor((index / len(hour)) * 100)) + '% complete)')
+
+                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                # Plot the subsections
+                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+
+                fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                ax1 = fig.add_subplot(111)
+                ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
+                ax1.set_xlabel('Doppler Shift, Hz')
+                ax1.set_ylabel('Counts, N', color='r')
+                ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.set_xticks(binlims[::2])
+
+                plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                          'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                                                                                     'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          + self.month + ' UTC',
+                          fontsize='10')
+
+                plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
+                            orientation='landscape')
+                count += 1
+
+                plt.close()
+
+                index += 1
+
+            indexhr += 1
+
+
+def movie(dirname, gifname, fps=10):
+    if os.path.exists(dirname):
+        # assign directory
+        directory = dirname
+
+        filenames = []
+        # iterate over files in that directory
+        for filename in os.scandir(directory):
+            if filename.is_file():
+                filenames.append('./' + directory + '/' + filename.name)
+
+        filenames.sort(key=lambda f: int(sub('\D', '', f)))
+
+        frames = []
+        for t in range(0, 275):
+            image = imageio.v2.imread(filenames[t])
+            frames.append(image)
+
+        imageio.mimsave('./' + gifname + '.gif',  # output gif
+                        frames,  # array of input frames
+                        fps=fps)  # optional: frames per second
+    else:
+        print('That directory does not exist on the local path! \n'
+              'Please try again.')
+
+
+def mblHandle(minBinLen):
+    if 60 % minBinLen == 0:
+        secrange = int(minBinLen * 60)
+        minrange = int(60 / minBinLen)
+    else:
+        hrDivs = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60]
+        binFix = 1
+        for i in hrDivs:
+            binFix = i if minBinLen > i else binFix
+
+        print("Please choose a minute bin length that divides into 60 evenly!")
+        print("Rounding down to the closest factor, " + str(binFix))
+
+        secrange = int(binFix * 60)
+        minrange = int(60 / binFix)
+
+    return secrange, minrange
