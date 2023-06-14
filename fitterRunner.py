@@ -30,5 +30,6 @@ import grape
 # pl.close()
 
 g = grape.Grape('wwv_july_data/2021-07-01T000000Z_N0000020_G1_FN20vr_FRQ_WWV10.csv', filt=True)
-# g.distPlotsFit('f', 'dop_fit_test', 'july_dop_fit')
-g.bestFitsPlot('f', 'jul1_pdfs')
+# g.distPlotsFit('f', 'jul1_pdfs')
+# g.bestFitsPlot('f', 'jul1_pdfs_5min')  # default 5 min bins
+g.bestFitsPlot('f', 'jul1_pdfs_15min', minBinLen=15)

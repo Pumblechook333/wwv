@@ -17,7 +17,7 @@ pnames = ['db', 'decibel', 'p', 'pwr', 'power']
 
 class Grape:
 
-    def __init__(self, filename=None, filt=False, convun=True, n=1):
+    def __init__(self, filename=None, filt=False, convun=True, count=False, n=1):
         """
         Constructor for a Grape object
 
@@ -65,6 +65,8 @@ class Grape:
             self.butFilt()
         if convun:
             self.units()
+        if count:
+            self.count()
 
     def load(self, filename, n=1):
         """
@@ -171,7 +173,7 @@ class Grape:
             if self.filtered:
                 self.f_range_filt = [(f - fdel) for f in self.freq_filt]  # Doppler shifts (del from 10GHz)
                 self.Vdb_range_filt = [10 * np.log10(v ** 2) for v in
-                                  self.Vpk_filt]  # Relative power (Power is proportional to V^2; dB)
+                                       self.Vpk_filt]  # Relative power (Power is proportional to V^2; dB)
             self.converted = True
         else:
             print('Time, frequency and Vpk not loaded!')
@@ -321,8 +323,8 @@ class Grape:
 
                         plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
                                   'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                  'Node: N0000020    Gridsquare: FN20vr \n'
-                                  'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                                                                             'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                             'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                                   + self.date + ' UTC',
                                   fontsize='10')
 
@@ -404,7 +406,8 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', secrange=60 * 5, minrange=12):
+    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', secrange=60 * 5,
+                     minrange=12):
 
         if self.converted:
             if valname in fnames:
@@ -470,14 +473,14 @@ class Grape:
                         pl.xticks(binlims[::2])
 
                         pl.title('Fitted Doppler Shift Distribution \n'
-                                'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                'Node: N0000020    Gridsquare: FN20vr \n'
-                                'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                                + self.date + ' UTC',
-                                fontsize='10')
+                                 'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                                                                                            'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                            'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                 + self.date + ' UTC',
+                                 fontsize='10')
 
                         pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=250,
-                                  orientation='landscape')
+                                   orientation='landscape')
 
                         pl.close()
 
@@ -493,7 +496,8 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def bestFitsPlot(self, valname, figname, secrange=60 * 5, minrange=12):
+    # def bestFitsPlot(self, valname, figname, secrange=60 * 5, minrange=12):
+    def bestFitsPlot(self, valname, figname, minBinLen=5):  # TODO - make this change to minBinLen for other methods
         if self.converted:
             if valname in fnames:
                 vals = self.f_range
@@ -507,6 +511,21 @@ class Grape:
             if vals:
                 # Make subsections and begin plot generation
                 subranges = []  # contains equally sized ranges of data
+
+                if 60 % minBinLen == 0:
+                    secrange = int(minBinLen * 60)
+                    minrange = int(60 / minBinLen)
+                else:
+                    hrDivs = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60]
+                    binFix = 1
+                    for i in hrDivs:
+                        binFix = i if minBinLen > i else binFix
+
+                    print("Please choose a minute bin length that divides into 60 evenly!")
+                    print("Rounding down to the closest factor, " + str(binFix))
+
+                    secrange = int(binFix * 60)
+                    minrange = int(60 / binFix)
 
                 index = 0
                 while not index > len(vals):
@@ -531,8 +550,8 @@ class Grape:
 
                     index = 0
                     for srange in hour:
-                        print('Resolving subrange: ' + str(index) + ' ('
-                              + str(floor((index / len(hour)) * 100)) + '% complete)')
+                        # print('Resolving subrange: ' + str(index) + ' ('
+                        #       + str(floor((index / len(hour)) * 100)) + '% complete)')
 
                         binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                         # best3 = ['dweibull', 'dgamma', 'laplace']
@@ -547,10 +566,13 @@ class Grape:
                     indexhr += 1
 
                 frange = self.f_range if not self.filtered else self.f_range_filt
+                prange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
+
+                yrange = frange if (valname in fnames) else prange
 
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
-                ax1.plot(self.t_range, frange, 'k')  # color k for black
+                ax1.plot(self.t_range, yrange, color='k')  # color k for black
                 ax1.set_xlabel('UTC Hour')
                 ax1.set_ylabel('Doppler shift, Hz')
                 ax1.set_xlim(0, 24)  # UTC day
@@ -561,20 +583,12 @@ class Grape:
                 fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
                 self.bestFits = [list(i.keys())[0] for i in self.bestFits]
 
-                ax2 = ax1.twinx()
-                ax2.scatter(fitTimeRange, self.bestFits, color='red')  # NOTE: Set for filtered version
-                ax2.set_ylabel('Best Fit PDF', color='red')
-                ax2.grid(axis='y', alpha=0.5)
-                for tl in ax2.get_yticklabels():
+                ax3 = ax1.twinx()
+                ax3.scatter(fitTimeRange, self.bestFits, color='r')
+                ax3.set_ylabel('Best Fit PDF', color='r')
+                ax3.grid(axis='y', alpha=0.5)
+                for tl in ax3.get_yticklabels():
                     tl.set_color('r')
-
-                # fitTimeRange = [(i/len(self.bestFits))*24 for i in range(0, len(self.bestFits))]
-                # self.bestFits = [list(i.keys())[0] for i in self.bestFits]
-                # plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                # plt.scatter(fitTimeRange, self.bestFits)
-                # plt.xlabel('UTC Hour')
-                # plt.ylabel('Best Fit PDF')
-                # plt.xlim(0, 24)  # UTC day
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution PDFs \n'  # Title (top)
                           'Node: N0000020    Gridsquare: FN20vr \n'
@@ -595,7 +609,6 @@ class Grape:
 
 
 def movie(dirname, gifname, fps=10):
-
     if os.path.exists(dirname):
         # assign directory
         directory = dirname
@@ -643,7 +656,7 @@ class GrapeHandler:
             for filename in filenames:
                 self.grapes.append(Grape(filename))
 
-            self.month = self.grapes[0].date[0:7]     # Attributes the date of the first grape
+            self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
 
             self.valscomb = []
 
@@ -653,7 +666,6 @@ class GrapeHandler:
                 vals = vals[1]  # select just the freq
                 self.valscomb.append(vals)
 
-            # noinspection PyTypeChecker
             self.valslength = len(vals)
 
         else:
@@ -693,7 +705,7 @@ class GrapeHandler:
         while not index > self.valslength:
             secs = []
             for vals in self.valscomb:
-                secs += vals[index:index+secrange]
+                secs += vals[index:index + secrange]
             subranges.append(secs)
             index += secrange
 
@@ -735,8 +747,8 @@ class GrapeHandler:
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
                           'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                          'Node: N0000020    Gridsquare: FN20vr \n'
-                          'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                                                                     'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.month + ' UTC',
                           fontsize='10')
 
@@ -749,4 +761,3 @@ class GrapeHandler:
                 index += 1
 
             indexhr += 1
-
