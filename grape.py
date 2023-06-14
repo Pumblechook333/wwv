@@ -559,9 +559,7 @@ class Grape:
                         #       + str(floor((index / len(hour)) * 100)) + '% complete)')
 
                         binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                        # best3 = ['dweibull', 'dgamma', 'laplace']
 
-                        # f = Fitter(srange, bins=binlims, distributions=best3)
                         f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                         f.fit()
                         self.bestFits.append(f.get_best())
@@ -614,11 +612,12 @@ class Grape:
 
 
 class GrapeHandler:
-    def __init__(self, dirname):
+    def __init__(self, dirname, filt=False):
         self.grapes = []
         self.valscomb = []
         self.month = None
         self.valslength = None
+        self.bestFits = None
 
         if os.path.exists(dirname):
             # assign directory
@@ -633,7 +632,7 @@ class GrapeHandler:
             filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
             for filename in filenames:
-                self.grapes.append(Grape(filename))
+                self.grapes.append(Grape(filename, filt=filt))
 
             self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
 
@@ -743,73 +742,18 @@ class GrapeHandler:
 
             indexhr += 1
 
-    def multGrapeFits(self, dirname, figname, minBinLen=5):
-
-        secrange, minrange = mblHandle(minBinLen)
-
-        # Make subsections and begin plot generation
-        subranges = []  # contains equally sized ranges of data
-
-        index = 0
-        while not index > self.valslength:
-            secs = []
-            for vals in self.valscomb:
-                secs += vals[index:index + secrange]
-            subranges.append(secs)
-            index += secrange
-
-        hours = []  # contains 24 hour chunks of data
-
-        index = 0
-        while not index > len(subranges):
-            hours.append(subranges[index:index + minrange])
-            index += minrange
-
-        # begin plot generation
-        # initializes directory on local path if it does not exist
+    def mgBestFitsPlot(self, valname, dirname, figname, minBinLen=5):
         if not os.path.exists(dirname):
             os.mkdir(dirname)
 
         count = 0
-        indexhr = 0
-        for hour in hours:
-            print('\nResolving hour: ' + str(indexhr) + ' ('
-                  + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
-                  + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+        for grape in self.grapes:
+            print('\nResolving grape: ' + str(count) + ' ('
+                  + str(floor((count / len(self.grapes)) * 100)) + '% complete) \n'
+                  + '*************************************')
 
-            index = 0
-            for srange in hour:
-                print('Resolving subrange: ' + str(index) + ' ('
-                      + str(floor((index / len(hour)) * 100)) + '% complete)')
-
-                # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                # Plot the subsections
-                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-
-                fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                ax1 = fig.add_subplot(111)
-                ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
-                ax1.set_xlabel('Doppler Shift, Hz')
-                ax1.set_ylabel('Counts, N', color='r')
-                ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.set_xticks(binlims[::2])
-
-                plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
-                          'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                     'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                          + self.month + ' UTC',
-                          fontsize='10')
-
-                plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
-                            orientation='landscape')
-                count += 1
-
-                plt.close()
-
-                index += 1
-
-            indexhr += 1
+            grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen)
+            count += 1
 
 
 def movie(dirname, gifname, fps=10):
