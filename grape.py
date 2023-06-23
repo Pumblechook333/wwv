@@ -1,11 +1,9 @@
 import matplotlib.pyplot as plt
-from scipy.signal import filtfilt, butter
-from collections import Counter
 import numpy as np
 from math import floor
 from csv import reader
 import os
-import imageio
+import imageio as imageio
 from re import sub
 from fitter import Fitter
 import pylab as pl
@@ -145,6 +143,8 @@ class Grape:
         :return: None
         """
 
+        from scipy.signal import filtfilt, butter
+
         if self.loaded:
             # noinspection PyTupleAssignmentBalance
             b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
@@ -178,13 +178,18 @@ class Grape:
         else:
             print('Time, frequency and Vpk not loaded!')
 
-    def dopPowPlot(self, figname):
+    def dopPowPlot(self, figname, ylim=None):
         """
         Plot the doppler shift and relative power over time of the signal
 
+        :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
+         for the data (default = [-1, 1])
         :param figname: Filename for the produced .png plot image
         :return: None
         """
+
+        if ylim is None:
+            ylim = [-1, 1]
 
         if self.converted:
             frange = self.f_range if not self.filtered else self.f_range_filt
@@ -196,7 +201,11 @@ class Grape:
             ax1.set_xlabel('UTC Hour')
             ax1.set_ylabel('Doppler shift, Hz')
             ax1.set_xlim(0, 24)  # UTC day
-            ax1.set_ylim([-1, 1])  # -1 to 1 Hz for Doppler shift
+            ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+            ax1.set_xticks(range(0, 25)[::2])
+            ax1.grid(axis='x', alpha=1)
+            ax1.grid(axis='y', alpha=0.5)
+
 
             ax2 = ax1.twinx()
             ax2.plot(self.t_range, Vdbrange, 'r-')  # NOTE: Set for filtered version
@@ -247,8 +256,10 @@ class Grape:
                 ax1.hist(vals, color='r', edgecolor='k', bins=binlims)
                 ax1.set_xlabel('Doppler Shift, Hz')
                 ax1.set_ylabel('Counts, N', color='r')
-                ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.set_xticks(binlims[::2])
+                pl.xlim([-1, 1])  # Doppler Shift Range
+                pl.xticks(np.arange(-1, 1.1, 0.1))
+                # pl.xlim([-2.5, 2.5])  # Doppler Shift Range
+                # pl.xticks(binlims[::2])
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
                           'Node: N0000020    Gridsquare: FN20vr \n'
@@ -266,6 +277,15 @@ class Grape:
             self.units()
 
     def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5):
+        """
+        Plot the distributions of a grape object value separated by specified time bins
+
+        :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
+        :param dirname: string value for the name of the local directory where the plots will be saved
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
+        :return: N/A
+        """
 
         if self.converted:
             if valname in fnames:
@@ -355,6 +375,8 @@ class Grape:
         :return: None
         """
 
+        from collections import Counter
+
         if self.converted:
             self.f_count = Counter(self.f_range)
             self.Vpk_count = Counter(self.Vpk)
@@ -366,6 +388,14 @@ class Grape:
             self.units()
 
     def distPlotFit(self, valname, figname):
+        """
+        Produces a fitted histogram for the entire day's worth of data (for the specified value)
+
+        :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
+        :param figname: string value for the beginning of the image filename
+        :return:
+        """
+
         if self.converted:
             if valname in fnames:
                 vals = self.f_range
@@ -379,9 +409,8 @@ class Grape:
             if vals:
                 binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                 pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                best3 = ['dweibull', 'dgamma', 'laplace']
 
-                f = Fitter(vals, bins=binlims, distributions=best3)
+                f = Fitter(vals, bins=binlims, distributions='common')
                 f.fit()
                 summary = f.summary()
                 print(summary)
@@ -389,8 +418,10 @@ class Grape:
 
                 pl.xlabel('Doppler Shift, Hz')
                 pl.ylabel('Normalized Counts')
-                pl.xlim([-2.5, 2.5])  # Doppler Shift Range
-                pl.xticks(binlims[::2])
+                pl.xlim([-1, 1])  # Doppler Shift Range
+                pl.xticks(np.arange(-1, 1.1, 0.1))
+                # pl.xlim([-2.5, 2.5])  # Doppler Shift Range
+                # pl.xticks(binlims[::2])
 
                 pl.title('Fitted Doppler Shift Distribution \n'
                          'Node: N0000020    Gridsquare: FN20vr \n'
@@ -410,6 +441,15 @@ class Grape:
             self.units()
 
     def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5):
+        """
+        Produces a series of fitted histograms at specified minute intervals
+
+        :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
+        :param dirname: string value for the name of the local directory where the plots will be saved
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
+        :return: N/A
+        """
 
         if self.converted:
             if valname in fnames:
@@ -501,8 +541,21 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    # def bestFitsPlot(self, valname, figname, secrange=60 * 5, minrange=12):
-    def bestFitsPlot(self, valname, figname, minBinLen=5):
+    def bestFitsPlot(self, valname, figname, minBinLen=5, ylim=None):
+        """
+        Over-plots the best fits resolved for each specified time bin with the doppler shift data for the day
+
+        :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
+        :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
+         for the data (default = [-1, 1])
+        :return: N/A
+        """
+
+        if ylim is None:
+            ylim = [-1, 1]
+
         if self.converted:
             if valname in fnames:
                 vals = self.f_range
@@ -580,7 +633,7 @@ class Grape:
                 ax1.set_ylabel('Doppler shift, Hz')
                 ax1.set_xlim(0, 24)  # UTC day
                 ax1.set_xticks(range(0, 25)[::2])
-                ax1.set_ylim([-1, 1])  # -1 to 1 Hz for Doppler shift
+                ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
                 ax1.grid(axis='x', alpha=1)
 
                 fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
@@ -613,6 +666,12 @@ class Grape:
 
 class GrapeHandler:
     def __init__(self, dirname, filt=False):
+        """
+        Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
+
+        :param dirname: string value for the local directory in which the intended data files (.csv) are located
+        :param filt: boolean value dictating whether or not each grape is filtered upon loading (default False)
+        """
         self.grapes = []
         self.valscomb = []
         self.month = None
@@ -742,7 +801,7 @@ class GrapeHandler:
 
             indexhr += 1
 
-    def mgBestFitsPlot(self, valname, dirname, figname, minBinLen=5):
+    def mgBestFitsPlot(self, valname, dirname, figname, minBinLen=5, ylim=None):
         if not os.path.exists(dirname):
             os.mkdir(dirname)
 
@@ -752,7 +811,7 @@ class GrapeHandler:
                   + str(floor((count / len(self.grapes)) * 100)) + '% complete) \n'
                   + '*************************************')
 
-            grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen)
+            grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen, ylim=ylim)
             count += 1
 
 
@@ -777,12 +836,20 @@ def movie(dirname, gifname, fps=10):
         imageio.mimsave('./' + gifname + '.gif',  # output gif
                         frames,  # array of input frames
                         fps=fps)  # optional: frames per second
+
     else:
         print('That directory does not exist on the local path! \n'
               'Please try again.')
 
 
 def mblHandle(minBinLen):
+    """
+    Converts the requested time frame (in minutes) to appropriate factors used for range calculation
+
+    :param minBinLen: an integer value for the length of every time bin (minutes)
+    :return: secrange [range of 'seconds' for every time bin] and minrange [range of 'minutes' for time bin]
+    """
+
     if 60 % minBinLen == 0:
         secrange = int(minBinLen * 60)
         minrange = int(60 / minBinLen)
