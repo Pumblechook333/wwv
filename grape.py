@@ -710,6 +710,12 @@ class GrapeHandler:
                   'Please try again.')
 
     def multGrapeDistPlot(self, figname):
+        """
+        Plots the combined histogram for all Grapes loaded into the GrapeHandler
+
+        :param figname: string value to act as the name for the produced image file
+        :return: N/A
+        """
 
         valscombline = []
         for i in self.valscomb:
@@ -734,6 +740,15 @@ class GrapeHandler:
         plt.close()
 
     def multGrapeDistPlots(self, dirname, figname, minBinLen=5):
+        """
+        Plots a series of distribution plots containing data across the provided time bin
+        from each of the Grapes in the GrapeHandler
+
+        :param dirname: string value for the name of the local directory where the plots will be saved
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: an integer value for the length of every time bin (minutes)
+        :return: N/A
+        """
 
         secrange, minrange = mblHandle(minBinLen)
 
@@ -802,6 +817,19 @@ class GrapeHandler:
             indexhr += 1
 
     def mgBestFitsPlot(self, valname, dirname, figname, minBinLen=5, ylim=None):
+        """
+        Plots the best fits for each specified time bin over the doppler shift data for each grape object
+
+
+        :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
+        :param dirname: string value for the name of the local directory where the plots will be saved
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
+        :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
+         for the data (default = [-1, 1])
+        :return: N/A
+        """
+
         if not os.path.exists(dirname):
             os.mkdir(dirname)
 
@@ -816,6 +844,16 @@ class GrapeHandler:
 
 
 def movie(dirname, gifname, fps=10):
+    """
+    Combines the images in the provided directory into a gif of the specified framerate
+
+    :param dirname: string value for the name of the local directory containing
+    the images (.png) to be processed into a gif
+    :param gifname: string value for the name of the produced gif
+    :param fps: integer value for the produced gif's frames per second (default 10)
+    :return: N/A
+    """
+
     if os.path.exists(dirname):
         # assign directory
         directory = dirname
