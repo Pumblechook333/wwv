@@ -276,7 +276,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5):
+    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5, sel=None):
         """
         Plot the distributions of a grape object value separated by specified time bins
 
@@ -320,46 +320,73 @@ class Grape:
                 if not os.path.exists(dirname):
                     os.mkdir(dirname)
 
-                count = 0
-                indexhr = 0
-                for hour in hours:
-                    print('\nResolving hour: ' + str(indexhr) + ' ('
-                          + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
-                          + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                if not sel:
+                    count = 0
+                    indexhr = 0
+                    for hour in hours:
+                        print('\nResolving hour: ' + str(indexhr) + ' ('
+                              + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                              + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
-                    index = 0
-                    for srange in hour:
-                        print('Resolving subrange: ' + str(index) + ' ('
-                              + str(floor((index / len(hour)) * 100)) + '% complete)')
+                        index = 0
+                        for srange in hour:
+                            print('Resolving subrange: ' + str(index) + ' ('
+                                  + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-                        # Plot the subsections
-                        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+                            # Plot the subsections
+                            binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
-                        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                        ax1 = fig.add_subplot(111)
-                        ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
-                        ax1.set_xlabel('Doppler Shift, Hz')
-                        ax1.set_ylabel('Counts, N', color='r')
-                        ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                        ax1.set_xticks(binlims[::2])
+                            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                            ax1 = fig.add_subplot(111)
+                            ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
+                            ax1.set_xlabel('Doppler Shift, Hz')
+                            ax1.set_ylabel('Counts, N', color='r')
+                            ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                            ax1.set_xticks(binlims[::2])
 
-                        plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
-                                  'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                             'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                             'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                                  + self.date + ' UTC',
-                                  fontsize='10')
+                            plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                                      'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
+                                                                                                 'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                                 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                      + self.date + ' UTC',
+                                      fontsize='10')
 
-                        plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
-                                    orientation='landscape')
-                        count += 1
+                            plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
+                                        orientation='landscape')
+                            count += 1
 
-                        plt.close()
+                            plt.close()
 
-                        index += 1
+                            index += 1
 
-                    indexhr += 1
+                        indexhr += 1
+                else:
+                    hrSel = sel[0]
+                    binSel = sel[1]
+
+                    hours = hours[hrSel][binSel]
+
+                    binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+
+                    fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                    ax1 = fig.add_subplot(111)
+                    ax1.hist(hours, color='r', edgecolor='k', bins=binlims)
+                    ax1.set_xlabel('Doppler Shift, Hz')
+                    ax1.set_ylabel('Counts, N', color='r')
+                    ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    ax1.set_xticks(binlims[::2])
+
+                    plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                              'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
+                              'Node: N0000020    Gridsquare: FN20vr \n'
+                              'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                              + self.date + ' UTC',
+                              fontsize='10')
+
+                    plt.savefig(str(figname) + '.png', dpi=250,
+                                orientation='landscape')
+
             else:
                 print("Please provide a valid valname!")
         else:
@@ -440,7 +467,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5):
+    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5, sel=None):
         """
         Produces a series of fitted histograms at specified minute intervals
 
@@ -486,53 +513,89 @@ class Grape:
 
                 self.bestFits = []
 
-                count = 0
-                indexhr = 0
-                for hour in hours:
-                    print('\nResolving hour: ' + str(indexhr) + ' ('
-                          + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
-                          + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                if not sel:
+                    count = 0
+                    indexhr = 0
+                    for hour in hours:
+                        print('\nResolving hour: ' + str(indexhr) + ' ('
+                              + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
+                              + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
 
-                    index = 0
-                    for srange in hour:
-                        print('Resolving subrange: ' + str(index) + ' ('
-                              + str(floor((index / len(hour)) * 100)) + '% complete)')
+                        index = 0
+                        for srange in hour:
+                            print('Resolving subrange: ' + str(index) + ' ('
+                                  + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                        pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                        # best3 = ['dweibull', 'dgamma', 'laplace']
+                            binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                            pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
-                        # f = Fitter(srange, bins=binlims, distributions=best3)
-                        f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
-                        f.fit()
-                        summary = f.summary()
-                        print(summary)
+                            f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
+                            f.fit()
+                            summary = f.summary()
+                            print(summary)
 
-                        self.bestFits.append(f.get_best())
+                            self.bestFits.append(f.get_best())
 
-                        f.hist()
+                            f.hist()
 
-                        pl.xlabel('Doppler Shift, Hz')
-                        pl.ylabel('Normalized Counts')
-                        pl.xlim([-2.5, 2.5])  # Doppler Shift Range
-                        pl.xticks(binlims[::2])
+                            pl.xlabel('Doppler Shift, Hz')
+                            pl.ylabel('Normalized Counts')
+                            pl.xlim([-2.5, 2.5])  # Doppler Shift Range
+                            pl.xticks(binlims[::2])
 
-                        pl.title('Fitted Doppler Shift Distribution \n'
-                                 'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                            'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                            'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                                 + self.date + ' UTC',
-                                 fontsize='10')
+                            pl.title('Fitted Doppler Shift Distribution \n'                             # Title (top)
+                                     'Hour: ' + str(indexhr) +
+                                     ' || 5-min bin: ' + str(index) + ' \n'
+                                     'Node: N0000020    Gridsquare: FN20vr \n'
+                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                     + self.date + ' UTC',
+                                     fontsize='10')
 
-                        pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=250,
-                                   orientation='landscape')
+                            pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=250,
+                                       orientation='landscape')
 
-                        pl.close()
+                            pl.close()
 
-                        count += 1
-                        index += 1
+                            count += 1
+                            index += 1
 
-                    indexhr += 1
+                        indexhr += 1
+                else:
+                    hrSel = sel[0]
+                    binSel = sel[1]
+
+                    hours = hours[hrSel][binSel]
+
+                    binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+                    f = Fitter(hours, bins=binlims, timeout=10, distributions='common')
+                    f.fit()
+                    summary = f.summary()
+                    print(summary)
+
+                    self.bestFits.append(f.get_best())
+
+                    f.hist()
+
+                    pl.xlabel('Doppler Shift, Hz')
+                    pl.ylabel('Normalized Counts')
+                    pl.xlim([-2.5, 2.5])  # Doppler Shift Range
+                    pl.xticks(binlims[::2])
+
+                    pl.title('Fitted Doppler Shift Distribution \n'  # Title (top)
+                             'Hour: ' + str(hrSel) +
+                             ' || 5-min bin: ' + str(binSel) + ' \n'
+                             'Node: N0000020    Gridsquare: FN20vr \n'
+                             'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                             + self.date + ' UTC',
+                             fontsize='10')
+
+                    pl.savefig(str(figname) + '.png', dpi=250,
+                               orientation='landscape')
+
+                    pl.close()
+
             else:
                 print("Please provide a valid valname!")
         else:
