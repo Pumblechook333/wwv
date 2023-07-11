@@ -234,11 +234,14 @@ class Grape:
             frange = self.f_range if not self.filtered else self.f_range_filt
             Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
 
+            sn = to_hr(self.suntimes['solar_noon'])
+
             fSize = fSize
 
             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
             ax1 = fig.add_subplot(111)
             ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
+            plt.axvline(x=sn, color='b')
             ax1.set_xlabel('UTC Hour', fontsize=fSize)
             ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
             ax1.set_xlim(0, 24)  # UTC day
@@ -1043,3 +1046,13 @@ def round_up(n, decimals=0):
 def round_down(n, decimals=0):
     multiplier = 10 ** decimals
     return floor(n * multiplier) / multiplier
+
+
+def to_hr(timestamp):
+    hr = timestamp.hour
+    mi = timestamp.minute
+    sec = timestamp.second
+
+    convhr = hr + mi/60 + sec/3600
+
+    return convhr
