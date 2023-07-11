@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from math import floor
+from math import floor, ceil
 from csv import reader
 import os
 import imageio as imageio
@@ -178,7 +178,7 @@ class Grape:
         else:
             print('Time, frequency and Vpk not loaded!')
 
-    def dopPowPlot(self, figname, ylim=None):
+    def dopPowPlot(self, figname, ylim=None, fSize=22):
         """
         Plot the doppler shift and relative power over time of the signal
 
@@ -195,32 +195,37 @@ class Grape:
             frange = self.f_range if not self.filtered else self.f_range_filt
             Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
 
+            fSize = fSize
+
             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
             ax1 = fig.add_subplot(111)
-            ax1.plot(self.t_range, frange, 'k')  # color k for black
-            ax1.set_xlabel('UTC Hour')
-            ax1.set_ylabel('Doppler shift, Hz')
+            ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
+            ax1.set_xlabel('UTC Hour', fontsize=fSize)
+            ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
             ax1.set_xlim(0, 24)  # UTC day
             ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
             ax1.set_xticks(range(0, 25)[::2])
+            ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
             ax1.grid(axis='x', alpha=1)
             ax1.grid(axis='y', alpha=0.5)
 
-
             ax2 = ax1.twinx()
-            ax2.plot(self.t_range, Vdbrange, 'r-')  # NOTE: Set for filtered version
-            ax2.set_ylabel('Power in relative dB', color='r')
+            ax2.plot(self.t_range, Vdbrange, 'r-', linewidth=2)  # NOTE: Set for filtered version
+            ax2.set_ylabel('Power in relative dB', color='r', fontsize=fSize)
             ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
+            ax2.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+
             # following lines set ylim for power readings in file
 
             for tl in ax2.get_yticklabels():
                 tl.set_color('r')
 
             plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
-                      'Node: N0000020    Gridsquare: FN20vr \n'
-                      'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                      # 'Node: N0000020    Gridsquare: FN20vr \n'
+                      # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                       + self.date + ' UTC',
-                      fontsize='10')
+                      fontsize=fSize)
             plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
             plt.close()
         else:
@@ -276,7 +281,8 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5, sel=None):
+    def distPlots(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5, sel=None,
+                  fSize=22):
         """
         Plot the distributions of a grape object value separated by specified time bins
 
@@ -368,21 +374,26 @@ class Grape:
                     hours = hours[hrSel][binSel]
 
                     binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-
                     fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+                    fSize = fSize
                     ax1 = fig.add_subplot(111)
                     ax1.hist(hours, color='r', edgecolor='k', bins=binlims)
-                    ax1.set_xlabel('Doppler Shift, Hz')
-                    ax1.set_ylabel('Counts, N', color='r')
-                    ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                    ax1.set_xticks(binlims[::2])
+                    ax1.set_xlabel('Doppler Shift, Hz', fontsize=fSize)
+                    ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
+                    ax1.set_xlim([-1, 1])  # Doppler Shift Range
+                    ax1.set_xticks(np.arange(-1, 1.1, 0.1))
+                    ax1.tick_params(axis='x',
+                                    labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    # ax1.set_xticks(binlims[::2])
+                    ax1.tick_params(axis='y', labelsize=fSize - 2)
 
                     plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
                               'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
-                              'Node: N0000020    Gridsquare: FN20vr \n'
-                              'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                              # 'Node: N0000020    Gridsquare: FN20vr \n'
+                              # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                               + self.date + ' UTC',
-                              fontsize='10')
+                              fontsize=fSize)
 
                     plt.savefig(str(figname) + '.png', dpi=250,
                                 orientation='landscape')
@@ -467,7 +478,8 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot', minBinLen=5, sel=None):
+    def distPlotsFit(self, valname, dirname='dshift_dist_plots', figname='dshift_dist_plot',
+                     minBinLen=5, sel=None, fSize=22):
         """
         Produces a series of fitted histograms at specified minute intervals
 
@@ -533,23 +545,26 @@ class Grape:
                             f.fit()
                             summary = f.summary()
                             print(summary)
-
                             self.bestFits.append(f.get_best())
 
                             f.hist()
 
-                            pl.xlabel('Doppler Shift, Hz')
-                            pl.ylabel('Normalized Counts')
+                            fSize = fSize
+                            pl.xlabel('Doppler Shift, Hz', fontsize=fSize)
+                            pl.ylabel('Normalized Counts', fontsize=fSize)
                             pl.xlim([-2.5, 2.5])  # Doppler Shift Range
-                            pl.xticks(binlims[::2])
+                            pl.xticks(binlims[::2], fontsize=fSize / 1.4)
+                            pl.yticks(fontsize=fSize / 1.4)
 
-                            pl.title('Fitted Doppler Shift Distribution \n'                             # Title (top)
+                            pl.legend(fontsize=fSize)
+
+                            pl.title('Fitted Doppler Shift Distribution \n'  # Title (top)
                                      'Hour: ' + str(indexhr) +
                                      ' || 5-min bin: ' + str(index) + ' \n'
-                                     'Node: N0000020    Gridsquare: FN20vr \n'
-                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                     # 'Node: N0000020    Gridsquare: FN20vr \n'
+                                     # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                                      + self.date + ' UTC',
-                                     fontsize='10')
+                                     fontsize=fSize)
 
                             pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=250,
                                        orientation='landscape')
@@ -573,23 +588,30 @@ class Grape:
                     f.fit()
                     summary = f.summary()
                     print(summary)
-
                     self.bestFits.append(f.get_best())
 
                     f.hist()
 
-                    pl.xlabel('Doppler Shift, Hz')
-                    pl.ylabel('Normalized Counts')
-                    pl.xlim([-2.5, 2.5])  # Doppler Shift Range
-                    pl.xticks(binlims[::2])
+                    fSize = fSize
+                    pl.xlabel('Doppler Shift, Hz', fontsize=fSize)
+                    pl.ylabel('Normalized Counts', fontsize=fSize)
+                    pl.xlim([-1, 1])  # Doppler Shift Range
+                    pl.xticks(np.arange(-1, 1.1, 0.1), fontsize=fSize / 1.4)
+                    # pl.xlim([-2.5, 2.5])  # Doppler Shift Range
+                    # pl.xticks(binlims[::2], fontsize=fSize/1.4)
+                    pl.yticks(fontsize=fSize / 1.4)
+
+                    pl.legend(fontsize=fSize)
 
                     pl.title('Fitted Doppler Shift Distribution \n'  # Title (top)
                              'Hour: ' + str(hrSel) +
                              ' || 5-min bin: ' + str(binSel) + ' \n'
-                             'Node: N0000020    Gridsquare: FN20vr \n'
-                             'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                             # 'Node: N0000020    Gridsquare: FN20vr \n'
+                             # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                              + self.date + ' UTC',
-                             fontsize='10')
+                             fontsize=fSize)
+
+                    pl.show()
 
                     pl.savefig(str(figname) + '.png', dpi=250,
                                orientation='landscape')
@@ -604,7 +626,7 @@ class Grape:
                   'Please try again.')
             self.units()
 
-    def bestFitsPlot(self, valname, figname, minBinLen=5, ylim=None):
+    def bestFitsPlot(self, valname, figname, minBinLen=5, ylim=None, fSize=22):
         """
         Over-plots the best fits resolved for each specified time bin with the doppler shift data for the day
 
@@ -615,9 +637,6 @@ class Grape:
          for the data (default = [-1, 1])
         :return: N/A
         """
-
-        if ylim is None:
-            ylim = [-1, 1]
 
         if self.converted:
             if valname in fnames:
@@ -630,23 +649,11 @@ class Grape:
                 vals = None
 
             if vals:
+
                 # Make subsections and begin plot generation
                 subranges = []  # contains equally sized ranges of data
 
-                if 60 % minBinLen == 0:
-                    secrange = int(minBinLen * 60)
-                    minrange = int(60 / minBinLen)
-                else:
-                    hrDivs = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60]
-                    binFix = 1
-                    for i in hrDivs:
-                        binFix = i if minBinLen > i else binFix
-
-                    print("Please choose a minute bin length that divides into 60 evenly!")
-                    print("Rounding down to the closest factor, " + str(binFix))
-
-                    secrange = int(binFix * 60)
-                    minrange = int(60 / binFix)
+                secrange, minrange = mblHandle(minBinLen)
 
                 index = 0
                 while not index > len(vals):
@@ -689,31 +696,51 @@ class Grape:
 
                 yrange = frange if (valname in fnames) else prange
 
+                # Sets y range of plot
+                if ylim is None:
+                    # truncates maximum and minimum values
+                    bottom = round_down(min(yrange), 1)
+                    top = round_up(max(yrange), 1)
+
+                    # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
+                    if valname in fnames:
+                        if bottom > -2:
+                            bottom = -1 if (bottom > -1) else (-1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
+                        if top < 2:
+                            top = 1 if (top < 1) else (1.2 if (top < 1.2) else (1.5 if (top < 1.5) else 2))
+
+                    ylim = [bottom, top]
+
+                fSize = fSize
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
                 ax1.plot(self.t_range, yrange, color='k')  # color k for black
-                ax1.set_xlabel('UTC Hour')
-                ax1.set_ylabel('Doppler shift, Hz')
+                ax1.set_xlabel('UTC Hour', fontsize=fSize)
+                ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
                 ax1.set_xlim(0, 24)  # UTC day
                 ax1.set_xticks(range(0, 25)[::2])
                 ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
                 ax1.grid(axis='x', alpha=1)
+                ax1.tick_params(axis='x',
+                                labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.tick_params(axis='y', labelsize=fSize - 2)
 
                 fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
                 self.bestFits = [list(i.keys())[0] for i in self.bestFits]
 
                 ax3 = ax1.twinx()
                 ax3.scatter(fitTimeRange, self.bestFits, color='r')
-                ax3.set_ylabel('Best Fit PDF', color='r')
+                ax3.set_ylabel('Best Fit PDF', color='r', fontsize=fSize)
                 ax3.grid(axis='y', alpha=0.5)
+                ax3.tick_params(axis='y', labelsize=fSize - 2)
                 for tl in ax3.get_yticklabels():
                     tl.set_color('r')
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution PDFs \n'  # Title (top)
-                          'Node: N0000020    Gridsquare: FN20vr \n'
-                          'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          # 'Node: N0000020    Gridsquare: FN20vr \n'
+                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.date + ' UTC',
-                          fontsize='10')
+                          fontsize=fSize)
 
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
                 plt.close()
@@ -967,3 +994,13 @@ def mblHandle(minBinLen):
         minrange = int(60 / binFix)
 
     return secrange, minrange
+
+
+def round_up(n, decimals=0):
+    multiplier = 10 ** decimals
+    return ceil(n * multiplier) / multiplier
+
+
+def round_down(n, decimals=0):
+    multiplier = 10 ** decimals
+    return floor(n * multiplier) / multiplier
