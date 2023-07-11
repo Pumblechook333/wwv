@@ -7,6 +7,8 @@ import imageio as imageio
 from re import sub
 from fitter import Fitter
 import pylab as pl
+from datetime import datetime
+import suncalc
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -27,6 +29,14 @@ class Grape:
 
         # Metadata containers
         self.date = None
+        self.node = None
+        self.gridsq = None
+        self.lat = None
+        self.lon = None
+        self.ele = None
+        self.cityState = None
+        self.radID = None
+        self.beacon = None
 
         # Raw data containers
         self.time = None
@@ -44,6 +54,10 @@ class Grape:
 
         self.f_range_filt = None
         self.Vdb_range_filt = None
+
+        # Calculated sun position and choice times (correlated to time series)
+        self.sunpos = None
+        self.suntimes = None
 
         # Counting variables for collections.counter
         self.f_count = None
@@ -94,14 +108,39 @@ class Grape:
         # col_title = lines[18].split()               # Titles for each data range
 
         self.date = str(header_data[0][1]).split('T')[0]
+        self.node = header_data[0][2]
+        self.gridsq = header_data[0][3]
+        self.lat = float(header_data[0][4])
+        self.lon = float(header_data[0][5])
+        self.ele = float(header_data[0][6])
+        self.cityState = header_data[0][7]
+        self.radID = header_data[0][8]
+        self.beacon = header_data[0][9]
+
+        splitdat = self.date.split('-')
+        year = int(splitdat[0])
+        month = int(splitdat[1])
+        day = int(splitdat[2])
+
+        d = datetime(year, month, day, 1)   # datetime object for 1st hour of the day
+        self.suntimes = suncalc.get_times(d, self.lon, self.lat)
+        self.sunpos = []
 
         # Read each line of file after the header
         for line in lines[19::n]:
             date_time = str(line[0]).split('T')
             utc_time = str(date_time[1]).split(':')
-            sec = (float(utc_time[0]) * 3600) + \
-                  (float(utc_time[1]) * 60) + \
-                  (float(utc_time[2][0:2]))
+
+            hour = int(utc_time[0])
+            minute = int(utc_time[1])
+            second = int(utc_time[2][0:2])
+
+            d = datetime(year, month, day, hour, minute, second)
+            self.sunpos.append(suncalc.get_position(d, self.lon, self.lat))
+
+            sec = (float(hour) * 3600) + \
+                  (float(minute) * 60) + \
+                  (float(second))
 
             self.time.append(sec)  # time list append
             self.freq.append(float(line[1]))  # doppler shift list append
