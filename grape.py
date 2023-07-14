@@ -9,6 +9,7 @@ from fitter import Fitter
 import pylab as pl
 from datetime import datetime
 import suncalc
+from statistics import median
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -39,7 +40,7 @@ class Grape:
 
         self.lat = None
         self.lon = None
-        self.blat = None
+        self.blat = None  # Coordinates of bounce location
         self.blon = None
 
         self.ele = None
@@ -76,12 +77,14 @@ class Grape:
         self.Vpk_count = None
         self.Vdb_count = None
 
+        self.bestFits = None
+        self.dayMed = None
+        self.nightMed = None
+
         # Flags to keep track of if the load() or units() function have been called, respectively
         self.loaded = False
         self.converted = False
         self.filtered = False
-
-        self.bestFits = None
 
         if filename:
             self.load(filename, n=n)
@@ -91,6 +94,8 @@ class Grape:
             self.units()
         if count:
             self.count()
+
+        self.dnMedian()
 
     def load(self, filename, n=1):
         """
@@ -236,10 +241,32 @@ class Grape:
         else:
             print('Time, frequency and Vpk not loaded!')
 
+    def dnMedian(self):
+        Bsr = to_hr(self.Bsuntimes['sunrise'])
+        Bss = to_hr(self.Bsuntimes['sunset'])
+
+        srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i]-Bsr))
+        ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bss))
+
+        if ssIndex < srIndex:
+            sunUp = self.f_range[0:ssIndex]
+            for i in self.f_range[srIndex:(len(self.f_range)-1)]:
+                sunUp.append(i)
+            sunDown = self.f_range[ssIndex:srIndex]
+        else:
+            sunDown = self.f_range[0:srIndex]
+            for i in self.f_range[ssIndex:(len(self.f_range) - 1)]:
+                sunDown.append(i)
+            sunUp = self.f_range[srIndex:ssIndex]
+
+        self.dayMed = median(sunUp)
+        self.nightMed = median(sunDown)
+
     def dopPowPlot(self, figname, ylim=None, fSize=22):
         """
         Plot the doppler shift and relative power over time of the signal
 
+        :param fSize: Font size to scale all plot text (default = 22)
         :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
          for the data (default = [-1, 1])
         :param figname: Filename for the produced .png plot image
@@ -373,6 +400,7 @@ class Grape:
         """
         Plot the distributions of a grape object value separated by specified time bins
 
+        :param fSize: Font size to scale all plot text (default = 22)
         :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
         :param dirname: string value for the name of the local directory where the plots will be saved
         :param figname: string value for the beginning of each image filename
@@ -570,6 +598,8 @@ class Grape:
         """
         Produces a series of fitted histograms at specified minute intervals
 
+        :param sel: Provide an integer list of the form [hour, bin] to plot that singular selection of data
+        :param fSize: Font size to scale all plot text (default = 22)
         :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
         :param dirname: string value for the name of the local directory where the plots will be saved
         :param figname: string value for the beginning of each image filename
@@ -717,6 +747,7 @@ class Grape:
         """
         Over-plots the best fits resolved for each specified time bin with the doppler shift data for the day
 
+        :param fSize: Font size to scale all plot text (default = 22)
         :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
         :param figname: string value for the beginning of each image filename
         :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
@@ -842,7 +873,7 @@ class Grape:
 
 
 class GrapeHandler:
-    def __init__(self, dirname, filt=False):
+    def __init__(self, dirnames, filt=False):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
@@ -851,19 +882,29 @@ class GrapeHandler:
         """
         self.grapes = []
         self.valscomb = []
+        self.dMeds = []
+        self.nMeds = []
         self.month = None
         self.valslength = None
         self.bestFits = None
 
-        if os.path.exists(dirname):
-            # assign directory
-            directory = dirname
+        valid = True
+
+        for directory in dirnames:
+            if os.path.exists(directory):
+                pass
+            else:
+                valid = False
+                break
+
+        if valid:
 
             filenames = []
-            # iterate over files in that directory
-            for filename in os.scandir(directory):
-                if filename.is_file():
-                    filenames.append('./' + directory + '/' + filename.name)
+            for directory in dirnames:
+                # iterate over files in that directory
+                for filename in os.scandir(directory):
+                    if filename.is_file():
+                        filenames.append('./' + directory + '/' + filename.name)
 
             filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
@@ -883,7 +924,7 @@ class GrapeHandler:
             self.valslength = len(vals)
 
         else:
-            print('That directory does not exist on the local path! \n'
+            print('One or more of the provided directories do not exist on the local path! \n'
                   'Please try again.')
 
     def multGrapeDistPlot(self, figname):
@@ -1019,6 +1060,32 @@ class GrapeHandler:
             grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen, ylim=ylim)
             count += 1
 
+    def medTrend(self, figname):
+
+        for grape in self.grapes:
+            self.dMeds.append(grape.dayMed)
+            self.nMeds.append(grape.nightMed)
+
+        xrange = range(0, len(self.grapes))
+
+        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        plt.plot(xrange, self.dMeds, linewidth=2, color='r')
+        plt.plot(xrange, self.nMeds, linewidth=2, color='b')
+        plt.xlabel('Time, days', fontsize=22)
+        plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
+        plt.xticks(xrange[::10])
+        plt.tick_params(axis='x', labelsize=20)
+        plt.tick_params(axis='y', labelsize=20)
+        plt.grid(axis='x', alpha=0.3)
+        plt.grid(axis='y', alpha=1)
+        plt.legend(["Sun Up Medians",
+                    "Sun Down Medians"], fontsize=22)
+
+        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
+                  fontsize=22)
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.close()
+
 
 def movie(dirname, gifname, fps=10):
     """
@@ -1101,3 +1168,4 @@ def to_hr(timestamp):
     convhr = hr + mi/60 + sec/3600
 
     return convhr
+
