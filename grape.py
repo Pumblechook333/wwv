@@ -14,6 +14,11 @@ fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
 pnames = ['db', 'decibel', 'p', 'pwr', 'power']
 
+# WWV Broadcasting tower coordinates based on:
+# https://latitude.to/articles-by-country/us/united-states/6788/wwv-radio-station
+WWV_LAT = 40.67583063
+WWV_LON = -105.038933178
+
 
 class Grape:
 
@@ -31,8 +36,12 @@ class Grape:
         self.date = None
         self.node = None
         self.gridsq = None
+
         self.lat = None
         self.lon = None
+        self.blat = None
+        self.blon = None
+
         self.ele = None
         self.cityState = None
         self.radID = None
@@ -57,7 +66,10 @@ class Grape:
 
         # Calculated sun position and choice times (correlated to time series)
         self.sunpos = None
-        self.suntimes = None
+
+        self.TXsuntimes = None
+        self.Bsuntimes = None
+        self.RXsuntimes = None
 
         # Counting variables for collections.counter
         self.f_count = None
@@ -123,7 +135,14 @@ class Grape:
         day = int(splitdat[2])
 
         d = datetime(year, month, day, 1)   # datetime object for 1st hour of the day
-        self.suntimes = suncalc.get_times(d, self.lon, self.lat)
+
+        self.blat = (self.lat + WWV_LAT) / 2
+        self.blon = (self.lon + WWV_LON) / 2
+
+        self.RXsuntimes = suncalc.get_times(d, self.lon, self.lat)
+        self.Bsuntimes = suncalc.get_times(d, self.blon, self.blat)
+        self.TXsuntimes = suncalc.get_times(d, WWV_LON, WWV_LAT)
+
         self.sunpos = []
 
         # Read each line of file after the header
@@ -234,14 +253,40 @@ class Grape:
             frange = self.f_range if not self.filtered else self.f_range_filt
             Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
 
-            sn = to_hr(self.suntimes['solar_noon'])
+            RXsr = to_hr(self.RXsuntimes['sunrise'])
+            RXsn = to_hr(self.RXsuntimes['solar_noon'])
+            RXss = to_hr(self.RXsuntimes['sunset'])
+
+            Bsr = to_hr(self.Bsuntimes['sunrise'])
+            Bsn = to_hr(self.Bsuntimes['solar_noon'])
+            Bss = to_hr(self.Bsuntimes['sunset'])
+
+            TXsr = to_hr(self.TXsuntimes['sunrise'])
+            TXsn = to_hr(self.TXsuntimes['solar_noon'])
+            TXss = to_hr(self.TXsuntimes['sunset'])
 
             fSize = fSize
 
             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
             ax1 = fig.add_subplot(111)
             ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
-            plt.axvline(x=sn, color='b')
+
+            RXsrMark = plt.axvline(x=RXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+            RXsnMark = plt.axvline(x=RXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
+            RXssMark = plt.axvline(x=RXss, color='b', linewidth=3, linestyle='dashed', alpha=0.3)
+
+            BsrMark = plt.axvline(x=Bsr, color='y', linewidth=3, linestyle='dashed')
+            BsnMark = plt.axvline(x=Bsn, color='g', linewidth=3, linestyle='dashed')
+            BssMark = plt.axvline(x=Bss, color='b', linewidth=3, linestyle='dashed')
+
+            TXsrMark = plt.axvline(x=TXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+            TXsnMark = plt.axvline(x=TXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
+            TXssMark = plt.axvline(x=TXss, color='b', linewidth=3, linestyle='dashed', alpha=0.3)
+
+            plt.legend([BsrMark, BsnMark, BssMark], ["Sunrise: " + str(round_down(Bsr, 2)) + " UTC",
+                                                  "Solar Noon: " + str(round_down(Bsn, 2)) + " UTC",
+                                                  "Sunset: " + str(round_down(Bss, 2)) + " UTC"], fontsize=fSize)
+
             ax1.set_xlabel('UTC Hour', fontsize=fSize)
             ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
             ax1.set_xlim(0, 24)  # UTC day
