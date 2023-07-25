@@ -15,6 +15,10 @@ fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
 pnames = ['db', 'decibel', 'p', 'pwr', 'power']
 
+months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+monthlen = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+monthindex = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+
 # WWV Broadcasting tower coordinates based on:
 # https://latitude.to/articles-by-country/us/united-states/6788/wwv-radio-station
 WWV_LAT = 40.67583063
@@ -262,6 +266,35 @@ class Grape:
         self.dayMed = median(sunUp)
         self.nightMed = median(sunDown)
 
+    def sunPosOver(self, fSize):
+        RXsr = to_hr(self.RXsuntimes['sunrise'])
+        RXsn = to_hr(self.RXsuntimes['solar_noon'])
+        RXss = to_hr(self.RXsuntimes['sunset'])
+
+        Bsr = to_hr(self.Bsuntimes['sunrise'])
+        Bsn = to_hr(self.Bsuntimes['solar_noon'])
+        Bss = to_hr(self.Bsuntimes['sunset'])
+
+        TXsr = to_hr(self.TXsuntimes['sunrise'])
+        TXsn = to_hr(self.TXsuntimes['solar_noon'])
+        TXss = to_hr(self.TXsuntimes['sunset'])
+
+        RXsrMark = plt.axvline(x=RXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+        RXsnMark = plt.axvline(x=RXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
+        RXssMark = plt.axvline(x=RXss, color='b', linewidth=3, linestyle='dashed', alpha=0.3)
+
+        BsrMark = plt.axvline(x=Bsr, color='y', linewidth=3, linestyle='dashed')
+        BsnMark = plt.axvline(x=Bsn, color='g', linewidth=3, linestyle='dashed')
+        BssMark = plt.axvline(x=Bss, color='b', linewidth=3, linestyle='dashed')
+
+        TXsrMark = plt.axvline(x=TXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+        TXsnMark = plt.axvline(x=TXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
+        TXssMark = plt.axvline(x=TXss, color='b', linewidth=3, linestyle='dashed', alpha=0.3)
+
+        plt.legend([BsrMark, BsnMark, BssMark], ["Sunrise: " + str(round_down(Bsr, 2)) + " UTC",
+                                                 "Solar Noon: " + str(round_down(Bsn, 2)) + " UTC",
+                                                 "Sunset: " + str(round_down(Bss, 2)) + " UTC"], fontsize=fSize)
+
     def dopPowPlot(self, figname, ylim=None, fSize=22):
         """
         Plot the doppler shift and relative power over time of the signal
@@ -280,39 +313,13 @@ class Grape:
             frange = self.f_range if not self.filtered else self.f_range_filt
             Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
 
-            RXsr = to_hr(self.RXsuntimes['sunrise'])
-            RXsn = to_hr(self.RXsuntimes['solar_noon'])
-            RXss = to_hr(self.RXsuntimes['sunset'])
-
-            Bsr = to_hr(self.Bsuntimes['sunrise'])
-            Bsn = to_hr(self.Bsuntimes['solar_noon'])
-            Bss = to_hr(self.Bsuntimes['sunset'])
-
-            TXsr = to_hr(self.TXsuntimes['sunrise'])
-            TXsn = to_hr(self.TXsuntimes['solar_noon'])
-            TXss = to_hr(self.TXsuntimes['sunset'])
-
             fSize = fSize
 
             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
             ax1 = fig.add_subplot(111)
             ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
 
-            RXsrMark = plt.axvline(x=RXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
-            RXsnMark = plt.axvline(x=RXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
-            RXssMark = plt.axvline(x=RXss, color='b', linewidth=3, linestyle='dashed', alpha=0.3)
-
-            BsrMark = plt.axvline(x=Bsr, color='y', linewidth=3, linestyle='dashed')
-            BsnMark = plt.axvline(x=Bsn, color='g', linewidth=3, linestyle='dashed')
-            BssMark = plt.axvline(x=Bss, color='b', linewidth=3, linestyle='dashed')
-
-            TXsrMark = plt.axvline(x=TXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
-            TXsnMark = plt.axvline(x=TXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
-            TXssMark = plt.axvline(x=TXss, color='b', linewidth=3, linestyle='dashed', alpha=0.3)
-
-            plt.legend([BsrMark, BsnMark, BssMark], ["Sunrise: " + str(round_down(Bsr, 2)) + " UTC",
-                                                  "Solar Noon: " + str(round_down(Bsn, 2)) + " UTC",
-                                                  "Sunset: " + str(round_down(Bss, 2)) + " UTC"], fontsize=fSize)
+            self.sunPosOver(fSize)
 
             ax1.set_xlabel('UTC Hour', fontsize=fSize)
             ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
@@ -854,6 +861,8 @@ class Grape:
                 for tl in ax3.get_yticklabels():
                     tl.set_color('r')
 
+                self.sunPosOver(fSize)
+
                 plt.title('WWV 10 MHz Doppler Shift Distribution PDFs \n'  # Title (top)
                           # 'Node: N0000020    Gridsquare: FN20vr \n'
                           # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
@@ -873,11 +882,11 @@ class Grape:
 
 
 class GrapeHandler:
-    def __init__(self, dirnames, filt=False):
+    def __init__(self, dirnames, filt=False, comb=True):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
-        :param dirname: string value for the local directory in which the intended data files (.csv) are located
+        :param dirnames: string value for the local directory in which the intended data files (.csv) are located
         :param filt: boolean value dictating whether or not each grape is filtered upon loading (default False)
         """
         self.grapes = []
@@ -906,22 +915,24 @@ class GrapeHandler:
                     if filename.is_file():
                         filenames.append('./' + directory + '/' + filename.name)
 
-            filenames.sort(key=lambda f: int(sub('\D', '', f)))
+            # filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
             for filename in filenames:
                 self.grapes.append(Grape(filename, filt=filt))
 
             self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
 
-            self.valscomb = []
+            if comb:
+                vals = []
+                for grape in self.grapes:
+                    vals = grape.getTFPr()  # get time, freq and power from grape
+                    vals = vals[1]  # select just the freq
+                    self.valscomb.append(vals)
 
-            vals = []
-            for grape in self.grapes:
-                vals = grape.getTFPr()  # get time, freq and power from grape
-                vals = vals[1]  # select just the freq
-                self.valscomb.append(vals)
-
-            self.valslength = len(vals)
+                self.valslength = len(vals)
+                print('GrapeHandler loaded with combvals')
+            else:
+                print('GrapeHandler loaded without combvals (no multGrapeDist)')
 
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
@@ -1063,17 +1074,30 @@ class GrapeHandler:
     def medTrend(self, figname):
 
         for grape in self.grapes:
-            self.dMeds.append(grape.dayMed)
-            self.nMeds.append(grape.nightMed)
+            if grape.beacon == 'WWV10':
+                if abs(grape.dayMed) < 100 and abs(grape.nightMed) < 100:
+                    self.dMeds.append(grape.dayMed)
+                    self.nMeds.append(grape.nightMed)
+                else:
+                    self.dMeds.append(0)
+                    self.nMeds.append(0)
+            else:
+                self.dMeds.append(0)
+                self.nMeds.append(0)
 
         xrange = range(0, len(self.grapes))
 
         plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         plt.plot(xrange, self.dMeds, linewidth=2, color='r')
         plt.plot(xrange, self.nMeds, linewidth=2, color='b')
-        plt.xlabel('Time, days', fontsize=22)
+
+        for m in monthindex:
+            plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+
+        plt.xlabel('Month', fontsize=22)
         plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
-        plt.xticks(xrange[::10])
+        # plt.ylim([-1.5, 1.5])
+        plt.xticks(monthindex, months)
         plt.tick_params(axis='x', labelsize=20)
         plt.tick_params(axis='y', labelsize=20)
         plt.grid(axis='x', alpha=0.3)
@@ -1084,6 +1108,14 @@ class GrapeHandler:
         plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+
+        # print(str(max(self.dMeds)))
+        # print(str(max(self.nMeds)))
+        # print()
+        # print(str(min(self.dMeds)))
+        # print(str(min(self.nMeds)))
+
+        plt.show()
         plt.close()
 
 
