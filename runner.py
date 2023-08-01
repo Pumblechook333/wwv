@@ -13,10 +13,11 @@ data_dir = 'wwv_data/'
 # gh.medTrend('medTrendPlot_year')
 
 g = grape.Grape(data_dir + 'wwv_jul_2021/2021-07-01T000000Z_N0000020_G1_FN20vr_FRQ_WWV10.csv', filt=True)
-# g.distPlotFit('f', 'testTotDistNewFit')
+g.distPlotFit('f', 'distplotFitTest')
 # g.distPlotsFit('f')
+# g.distPlot('f', 'distplotTest')
 # g.distPlots('f', figname='hr18bin0_jul1_2021', sel=[18, 0])
-g.bestFitsPlot('f', 'testDopFitPlot_new')
+# g.bestFitsPlot('f', 'testDopFitPlot_new')
 # g.dopPowPlot('testDopPlot', ylim=[-1, 1])
 # g.dopPowPlot('testDopPlot')
 

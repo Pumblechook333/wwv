@@ -377,21 +377,27 @@ class Grape:
             if vals:
                 binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
+                fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
                 ax1.hist(vals, color='r', edgecolor='k', bins=binlims)
-                ax1.set_xlabel('Doppler Shift, Hz')
-                ax1.set_ylabel('Counts, N', color='r')
+                ax1.set_xlabel('Doppler Shift, Hz', fontsize=fSize)
+                ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
+                ax1.grid(axis='x', alpha=1)
+                ax1.grid(axis='y', alpha=0.5)
+                ax1.tick_params(axis='x',
+                                labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.tick_params(axis='y', labelsize=fSize - 2)
                 pl.xlim([-1, 1])  # Doppler Shift Range
                 pl.xticks(np.arange(-1, 1.1, 0.1))
                 # pl.xlim([-2.5, 2.5])  # Doppler Shift Range
                 # pl.xticks(binlims[::2])
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
-                          'Node: N0000020    Gridsquare: FN20vr \n'
-                          'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          # 'Node: N0000020    Gridsquare: FN20vr \n'
+                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.date + ' UTC',
-                          fontsize='10')
+                          fontsize=fSize)
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
                 plt.close()
             else:
@@ -576,20 +582,30 @@ class Grape:
                 print(summary)
                 f.hist()
 
-                pl.xlabel('Doppler Shift, Hz')
-                pl.ylabel('Normalized Counts')
+                fSize = 22
+                pl.xlabel('Doppler Shift, Hz', fontsize=fSize)
+                pl.ylabel('Normalized Counts', fontsize=fSize)
                 pl.xlim([-1, 1])  # Doppler Shift Range
                 pl.xticks(np.arange(-1, 1.1, 0.1))
+
+                pl.legend(fontsize=fSize)
+                pl.grid(axis='x', alpha=1)
+                pl.grid(axis='y', alpha=0.5)
+                pl.tick_params(axis='x',
+                               labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                pl.tick_params(axis='y', labelsize=fSize - 2)
+
                 # pl.xlim([-2.5, 2.5])  # Doppler Shift Range
                 # pl.xticks(binlims[::2])
 
                 pl.title('Fitted Doppler Shift Distribution \n'
-                         'Node: N0000020    Gridsquare: FN20vr \n'
-                         'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                         # 'Node: N0000020    Gridsquare: FN20vr \n'
+                         # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                          + self.date + ' UTC',
-                         fontsize='10')
+                         fontsize=fSize)
                 pl.savefig(str(figname) + '.png', dpi=250,
                            orientation='landscape')
+                pl.show()
                 pl.close()
 
             else:
