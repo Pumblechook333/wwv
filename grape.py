@@ -246,11 +246,17 @@ class Grape:
             print('Time, frequency and Vpk not loaded!')
 
     def dnMedian(self):
+        """
+        Calculates the medians of the entire day's sunlight and sundown doppler shifts, seperately
+
+        :return:
+        """
+
         Bsr = to_hr(self.Bsuntimes['sunrise'])
         Bss = to_hr(self.Bsuntimes['sunset'])
 
         srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i]-Bsr))
-        ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bss))
+        ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i]-Bss))
 
         if ssIndex < srIndex:
             sunUp = self.f_range[0:ssIndex]
@@ -931,6 +937,7 @@ class GrapeHandler:
                     if filename.is_file():
                         filenames.append('./' + directory + '/' + filename.name)
 
+            # Unneeded sorting step (only feed sorted files)
             # filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
             for filename in filenames:
@@ -943,12 +950,13 @@ class GrapeHandler:
                 for grape in self.grapes:
                     vals = grape.getTFPr()  # get time, freq and power from grape
                     vals = vals[1]  # select just the freq
+                    # An array of arrays
                     self.valscomb.append(vals)
 
                 self.valslength = len(vals)
                 print('GrapeHandler loaded with combvals')
             else:
-                print('GrapeHandler loaded without combvals (no multGrapeDist)')
+                print('GrapeHandler loaded without combvals (no multGrapeDist, medTrend)')
 
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
@@ -1087,7 +1095,13 @@ class GrapeHandler:
             grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen, ylim=ylim)
             count += 1
 
-    def medTrend(self, figname):
+    def yearMedTrend(self, figname):
+        """
+        Plots the daily medians of all of GrapeHandler's grapes across the year
+
+        :param figname: Filename of the produced plot image
+        :return:
+        """
 
         for grape in self.grapes:
             if grape.beacon == 'WWV10':
@@ -1134,6 +1148,59 @@ class GrapeHandler:
         plt.show()
         plt.close()
 
+    def medTrend(self, figname, ylim=None, minBinLen=5, fSize=22):
+        """
+        Plots the median doppler shift of specified timebins of contained grapes
+
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: an integer value for the length of every time bin (minutes)
+        :return: N/A
+        """
+
+        secrange, minrange = mblHandle(minBinLen)
+
+        meds = []  # contains medians of specified time bins across grapes
+
+        index = 0
+        while not index > self.valslength:
+            secs = []
+            for vals in self.valscomb:
+                secs += vals[index:index + secrange]
+            meds.append(median(secs))
+            index += secrange
+
+        if ylim is None:
+            ylim = [-1, 1]
+
+        fSize = fSize
+
+        t_range = self.grapes[0].t_range
+        t_range = t_range[::secrange]
+
+        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        ax1 = fig.add_subplot(111)
+        ax1.plot(t_range, meds, 'k', linewidth=2)  # color k for black
+
+        self.grapes[0].sunPosOver(fSize)
+
+        ax1.set_xlabel('UTC Hour', fontsize=fSize)
+        ax1.set_ylabel('Median Doppler shift, Hz', fontsize=fSize)
+        ax1.set_xlim(0, 24)  # UTC day
+        ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        ax1.set_xticks(range(0, 25)[::2])
+        ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.grid(axis='x', alpha=1)
+        ax1.grid(axis='y', alpha=0.5)
+
+        plt.title('WWV 10 MHz Median Doppler Shift Plot \n'  # Title (top)
+                  # 'Node: N0000020    Gridsquare: FN20vr \n'
+                  # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                  + self.month,
+                  fontsize=fSize)
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.close()
+
 
 def movie(dirname, gifname, fps=10):
     """
@@ -1159,13 +1226,17 @@ def movie(dirname, gifname, fps=10):
         filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
         frames = []
-        for t in range(0, 275):
+        for t in range(0, len(filenames)):
             image = imageio.v2.imread(filenames[t])
             frames.append(image)
+
+        print('Frames processed')
 
         imageio.mimsave('./' + gifname + '.gif',  # output gif
                         frames,  # array of input frames
                         fps=fps)  # optional: frames per second
+
+        print('.gif success')
 
     else:
         print('That directory does not exist on the local path! \n'
