@@ -249,7 +249,7 @@ class Grape:
         """
         Calculates the medians of the entire day's sunlight and sundown doppler shifts, seperately
 
-        :return:
+        :return: N/A
         """
 
         Bsr = to_hr(self.Bsuntimes['sunrise'])
@@ -273,6 +273,13 @@ class Grape:
         self.nightMed = median(sunDown)
 
     def sunPosOver(self, fSize):
+        """
+
+
+        :param fSize:
+        :return:
+        """
+
         RXsr = to_hr(self.RXsuntimes['sunrise'])
         RXsn = to_hr(self.RXsuntimes['solar_noon'])
         RXss = to_hr(self.RXsuntimes['sunset'])
@@ -1194,9 +1201,8 @@ class GrapeHandler:
         ax1.grid(axis='y', alpha=0.5)
 
         plt.title('WWV 10 MHz Median Doppler Shift Plot \n'  # Title (top)
-                  # 'Node: N0000020    Gridsquare: FN20vr \n'
-                  # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                   + self.month,
+                  # + '2022',
                   fontsize=fSize)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
@@ -1270,16 +1276,39 @@ def mblHandle(minBinLen):
 
 
 def round_up(n, decimals=0):
+    """
+    Rounds the provided number up to the specified number of decimal places
+
+    :param n: the number to be rounded
+    :param decimals: the number of decimals the rounded value will contain
+    :return: rounded number
+    """
+
     multiplier = 10 ** decimals
     return ceil(n * multiplier) / multiplier
 
 
 def round_down(n, decimals=0):
+    """
+    Rounds the provided number down to the specified number of decimal places
+
+    :param n: the number to be rounded
+    :param decimals: the number of decimals the rounded value will contain
+    :return: rounded number
+    """
+
     multiplier = 10 ** decimals
     return floor(n * multiplier) / multiplier
 
 
 def to_hr(timestamp):
+    """
+    Converts timestamps created for sun position times (hr, min, sec) by sunpy into decimal hours
+
+    :param timestamp: timestamp object containing hr, min, sec
+    :return: time in decimal hours
+    """
+
     hr = timestamp.hour
     mi = timestamp.minute
     sec = timestamp.second

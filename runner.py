@@ -3,10 +3,8 @@ import grape
 months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 data_dir = 'wwv_data/'
 
-# gh = grape.GrapeHandler([data_dir + 'wwv_april_2022', data_dir + 'wwv_july_2022',
-#                          data_dir + 'wwv_october_2022', data_dir + 'wwv_december_2022'])
-# gh = grape.GrapeHandler([data_dir + 'test'])
-# gh.medTrend('testMedTrend')
+gh = grape.GrapeHandler([(data_dir + 'wwv_' + month + '_2022') for month in months])
+gh.medTrend('medTrend2022')
 
 # for m in months:
 #     gh = grape.GrapeHandler([data_dir + 'wwv_' + m + '_2022'])
@@ -27,4 +25,4 @@ data_dir = 'wwv_data/'
 # g.dopPowPlot('testDopPlot', ylim=[-1, 1])
 # g.dopPowPlot('testDopPlot')
 
-grape.movie('monthlyMedTrends2022', 'medTrend2022', 5)
+# grape.movie('monthlyMedTrends2022', 'medTrend2022', 5)
