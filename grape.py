@@ -107,7 +107,7 @@ class Grape:
 
         :param filename: Path of the .txt file containing the grape data in the local repo
         :param n: Subsampling term (every nth)
-        :return: None
+        :return: loaded grape to grape object
         """
 
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -207,7 +207,7 @@ class Grape:
 
         :param FILTERORDER: Order of the Butterworth filter
         :param FILTERBREAK: Cutoff Frequency of the Butterworth Filter
-        :return: None
+        :return: data filtered by butterworth filter to grape object
         """
 
         from scipy.signal import filtfilt, butter
@@ -229,7 +229,7 @@ class Grape:
 
         :param timediv: Dividing factor for seconds data
         :param fdel: Reference value for doppler shift (10GHz for WWV)
-        :return: None
+        :return: converted data to grape object
         """
 
         if self.loaded:
@@ -249,7 +249,7 @@ class Grape:
         """
         Calculates the medians of the entire day's sunlight and sundown doppler shifts, seperately
 
-        :return: N/A
+        :return: day and night medians to grape object
         """
 
         Bsr = to_hr(self.Bsuntimes['sunrise'])
@@ -274,10 +274,10 @@ class Grape:
 
     def sunPosOver(self, fSize):
         """
+        Plots overlay of the grape's sunrise, sunset, and solar noon features over the currently open matplotlib plot
 
-
-        :param fSize:
-        :return:
+        :param fSize: fontsize of legend text
+        :return: vertical lines on current graph
         """
 
         RXsr = to_hr(self.RXsuntimes['sunrise'])
@@ -316,7 +316,7 @@ class Grape:
         :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
          for the data (default = [-1, 1])
         :param figname: Filename for the produced .png plot image
-        :return: None
+        :return: .png plot into local repository
         """
 
         if ylim is None:
@@ -374,7 +374,7 @@ class Grape:
 
         :param valname: Hint for the system to determine which value to plot the distribution of (doppler shift, power, etc.)
         :param figname: Name for the produced .png plot file
-        :return: None
+        :return: .png plot into local repository
         """
 
         if self.converted:
@@ -431,7 +431,7 @@ class Grape:
         :param dirname: string value for the name of the local directory where the plots will be saved
         :param figname: string value for the beginning of each image filename
         :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
-        :return: N/A
+        :return: .png plot into local repository
         """
 
         if self.converted:
@@ -551,7 +551,7 @@ class Grape:
         """
         Employs collections.Counter to produce counts of individual values in grape value ranges
 
-        :return: None
+        :return: discrete counts to grape object
         """
 
         from collections import Counter
@@ -572,7 +572,7 @@ class Grape:
 
         :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
         :param figname: string value for the beginning of the image filename
-        :return:
+        :return: .png plot into local repository
         """
 
         if self.converted:
@@ -640,7 +640,7 @@ class Grape:
         :param dirname: string value for the name of the local directory where the plots will be saved
         :param figname: string value for the beginning of each image filename
         :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
-        :return: N/A
+        :return: .png plot into dirname repository
         """
 
         if self.converted:
@@ -789,7 +789,7 @@ class Grape:
         :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
         :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
          for the data (default = [-1, 1])
-        :return: N/A
+        :return: .png plot into local repository
         """
 
         if self.converted:
@@ -974,7 +974,7 @@ class GrapeHandler:
         Plots the combined histogram for all Grapes loaded into the GrapeHandler
 
         :param figname: string value to act as the name for the produced image file
-        :return: N/A
+        :return: .png plot into local repository
         """
 
         valscombline = []
@@ -1007,7 +1007,7 @@ class GrapeHandler:
         :param dirname: string value for the name of the local directory where the plots will be saved
         :param figname: string value for the beginning of each image filename
         :param minBinLen: an integer value for the length of every time bin (minutes)
-        :return: N/A
+        :return: .png plot into dirname repository
         """
 
         secrange, minrange = mblHandle(minBinLen)
@@ -1080,14 +1080,13 @@ class GrapeHandler:
         """
         Plots the best fits for each specified time bin over the doppler shift data for each grape object
 
-
         :param valname: string value dictating value selection (eg. 'f', 'v', or 'db')
         :param dirname: string value for the name of the local directory where the plots will be saved
         :param figname: string value for the beginning of each image filename
         :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
         :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
          for the data (default = [-1, 1])
-        :return: N/A
+        :return: .png plot into dirname repository
         """
 
         if not os.path.exists(dirname):
@@ -1107,7 +1106,7 @@ class GrapeHandler:
         Plots the daily medians of all of GrapeHandler's grapes across the year
 
         :param figname: Filename of the produced plot image
-        :return:
+        :return: .png plot into local repository
         """
 
         for grape in self.grapes:
@@ -1161,7 +1160,7 @@ class GrapeHandler:
 
         :param figname: string value for the beginning of each image filename
         :param minBinLen: an integer value for the length of every time bin (minutes)
-        :return: N/A
+        :return: .png plot into local repository
         """
 
         secrange, minrange = mblHandle(minBinLen)
@@ -1216,7 +1215,7 @@ def movie(dirname, gifname, fps=10):
     the images (.png) to be processed into a gif
     :param gifname: string value for the name of the produced gif
     :param fps: integer value for the produced gif's frames per second (default 10)
-    :return: N/A
+    :return: a gif of the combined files in the local repository
     """
 
     if os.path.exists(dirname):
