@@ -15,6 +15,10 @@ fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
 pnames = ['db', 'decibel', 'p', 'pwr', 'power']
 
+flabel = 'Doppler Shift, Hz'
+plabel = 'Relative Power, dB'
+vlabel = 'Voltage, V'
+
 months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 monthlen = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
 monthindex = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
@@ -245,6 +249,23 @@ class Grape:
         else:
             print('Time, frequency and Vpk not loaded!')
 
+    def valCh(self, valname):
+        label = 'None'
+
+        if valname in fnames:
+            vals = self.f_range
+            label = flabel
+        elif valname in vnames:
+            vals = self.Vpk
+            label = vlabel
+        elif valname in pnames:
+            vals = self.Vdb_range
+            label = plabel
+        else:
+            vals = None
+
+        return vals, label
+
     def dnMedian(self):
         """
         Calculates the medians of the entire day's sunlight and sundown doppler shifts, seperately
@@ -335,7 +356,7 @@ class Grape:
             self.sunPosOver(fSize)
 
             ax1.set_xlabel('UTC Hour', fontsize=fSize)
-            ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
+            ax1.set_ylabel(flabel, fontsize=fSize)
             ax1.set_xlim(0, 24)  # UTC day
             ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
             ax1.set_xticks(range(0, 25)[::2])
@@ -346,7 +367,7 @@ class Grape:
 
             ax2 = ax1.twinx()
             ax2.plot(self.t_range, Vdbrange, 'r-', linewidth=2)  # NOTE: Set for filtered version
-            ax2.set_ylabel('Power in relative dB', color='r', fontsize=fSize)
+            ax2.set_ylabel(plabel, color='r', fontsize=fSize)
             ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
             ax2.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
@@ -378,35 +399,30 @@ class Grape:
         """
 
         if self.converted:
-            if valname in fnames:
-                vals = self.f_range
-            elif valname in vnames:
-                vals = self.Vpk
-            elif valname in pnames:
-                vals = self.Vdb_range
-            else:
-                vals = None
+            vals, label = self.valCh(valname)
 
             if vals:
-                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                binlims = None
+                if valname in fnames:
+                    binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
                 fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
-                ax1.hist(vals, color='r', edgecolor='k', bins=binlims)
-                ax1.set_xlabel('Doppler Shift, Hz', fontsize=fSize)
+                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if binlims else ax1.hist(vals, color='r', edgecolor='k')
+                ax1.set_xlabel(label, fontsize=fSize)
                 ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
                 ax1.grid(axis='x', alpha=1)
                 ax1.grid(axis='y', alpha=0.5)
                 ax1.tick_params(axis='x',
                                 labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                 ax1.tick_params(axis='y', labelsize=fSize - 2)
-                pl.xlim([-1, 1])  # Doppler Shift Range
-                pl.xticks(np.arange(-1, 1.1, 0.1))
-                # pl.xlim([-2.5, 2.5])  # Doppler Shift Range
-                # pl.xticks(binlims[::2])
 
-                plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
+                if valname in fnames:
+                    pl.xlim([-1, 1])  # Doppler Shift Range
+                    pl.xticks(np.arange(-1, 1.1, 0.1))
+
+                plt.title('WWV 10 MHz ' + label.split(',')[0] + ' Distribution Plot \n'  # Title (top)
                           # 'Node: N0000020    Gridsquare: FN20vr \n'
                           # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.date + ' UTC',
