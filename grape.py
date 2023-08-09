@@ -31,7 +31,7 @@ WWV_LON = -105.038933178
 
 class Grape:
 
-    def __init__(self, filename=None, filt=False, convun=True, count=False, n=1):
+    def __init__(self, filename=None, filt=False, convun=True, med=True, count=False, n=1):
         """
         Constructor for a Grape object
 
@@ -96,14 +96,16 @@ class Grape:
 
         if filename:
             self.load(filename, n=n)
-        if filt:
-            self.butFilt()
-        if convun:
-            self.units()
-        if count:
-            self.count()
 
-        self.dnMedian()
+        if self.loaded:
+            if filt:
+                self.butFilt()
+            if convun:
+                self.units()
+            if count:
+                self.count()
+            if med:
+                self.dnMedian()
 
     def load(self, filename, n=1):
         """
@@ -147,7 +149,7 @@ class Grape:
         month = int(splitdat[1])
         day = int(splitdat[2])
 
-        d = datetime(year, month, day, 1)   # datetime object for 1st hour of the day
+        d = datetime(year, month, day, 1)  # datetime object for 1st hour of the day
 
         self.blat = (self.lat + WWV_LAT) / 2
         self.blon = (self.lon + WWV_LON) / 2
@@ -178,9 +180,15 @@ class Grape:
             self.freq.append(float(line[1]))  # doppler shift list append
             self.Vpk.append(float(line[2]))  # voltage list append
 
-        # Raise loaded flag
-        self.loaded = True
-        print("Grape " + self.date + " loaded! \n")
+        if len(self.time) != 0:
+            if self.beacon == 'WWV10':
+                # Raise loaded flag
+                self.loaded = True
+                print("Grape " + self.date + " loaded! \n")
+            else:
+                print("Grape " + self.date + " not loaded (not WWV10) \n")
+        else:
+            print("Grape " + self.date + " not loaded (no data) \n")
 
     def getTFV(self):
         """
@@ -276,12 +284,12 @@ class Grape:
         Bsr = to_hr(self.Bsuntimes['sunrise'])
         Bss = to_hr(self.Bsuntimes['sunset'])
 
-        srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i]-Bsr))
-        ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i]-Bss))
+        srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bsr))
+        ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bss))
 
         if ssIndex < srIndex:
             sunUp = self.f_range[0:ssIndex]
-            for i in self.f_range[srIndex:(len(self.f_range)-1)]:
+            for i in self.f_range[srIndex:(len(self.f_range) - 1)]:
                 sunUp.append(i)
             sunDown = self.f_range[ssIndex:srIndex]
         else:
@@ -290,8 +298,14 @@ class Grape:
                 sunDown.append(i)
             sunUp = self.f_range[srIndex:ssIndex]
 
-        self.dayMed = median(sunUp)
-        self.nightMed = median(sunDown)
+        if len(sunUp) > 1:
+            self.dayMed = median(sunUp)
+        else:
+            print('No sunup detected (dayMed None)\n')
+        if len(sunDown) > 1:
+            self.nightMed = median(sunDown)
+        else:
+            print('No sundown detected (nightMed None)\n')
 
     def sunPosOver(self, fSize):
         """
@@ -409,7 +423,8 @@ class Grape:
                 fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
-                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if binlims else ax1.hist(vals, color='r', edgecolor='k')
+                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if binlims else ax1.hist(vals, color='r',
+                                                                                                edgecolor='k')
                 ax1.set_xlabel(label, fontsize=fSize)
                 ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
                 ax1.grid(axis='x', alpha=1)
@@ -875,7 +890,8 @@ class Grape:
                     # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
                     if valname in fnames:
                         if bottom > -2:
-                            bottom = -1 if (bottom > -1) else (-1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
+                            bottom = -1 if (bottom > -1) else (
+                                -1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
                         if top < 2:
                             top = 1 if (top < 1) else (1.2 if (top < 1.2) else (1.5 if (top < 1.5) else 2))
 
@@ -936,22 +952,23 @@ class GrapeHandler:
         """
         self.grapes = []
         self.valscomb = []
+        self.timecomb = []
         self.dMeds = []
         self.nMeds = []
         self.month = None
-        self.valslength = None
+        self.valslength = 0
+        self.bestgid = 0
         self.bestFits = None
-
-        valid = True
+        self.valid = True
 
         for directory in dirnames:
             if os.path.exists(directory):
                 pass
             else:
-                valid = False
+                self.valid = False
                 break
 
-        if valid:
+        if self.valid:
 
             filenames = []
             for directory in dirnames:
@@ -964,23 +981,33 @@ class GrapeHandler:
             # filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
             for filename in filenames:
-                self.grapes.append(Grape(filename, filt=filt))
+                g = Grape(filename, filt=filt)
+                if g.loaded:
+                    self.grapes.append(g)
 
-            self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
+            if len(self.grapes) != 0:
+                self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
 
-            if comb:
-                vals = []
-                for grape in self.grapes:
-                    vals = grape.getTFPr()  # get time, freq and power from grape
-                    vals = vals[1]  # select just the freq
-                    # An array of arrays
-                    self.valscomb.append(vals)
+                if comb:
+                    for gid, grape in enumerate(self.grapes):
+                        vals = grape.getTFPr()  # get time, freq and power from grape
+                        t = vals[0]
+                        f = vals[1]
+                        # An array of arrays
+                        self.timecomb.append(t)
+                        self.valscomb.append(f)
 
-                self.valslength = len(vals)
-                print('GrapeHandler loaded with combvals')
+                        if len(f) > self.valslength:
+                            self.valslength = len(f)
+                            self.bestgid = gid
+
+                    print('GrapeHandler loaded with combvals \n')
+                else:
+                    print('GrapeHandler loaded without combvals (no multGrapeDist, medTrend) \n')
+
             else:
-                print('GrapeHandler loaded without combvals (no multGrapeDist, medTrend)')
-
+                self.valid = False
+                print('GrapeHandler not loaded (no valid grapes) \n')
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
                   'Please try again.')
@@ -1196,14 +1223,14 @@ class GrapeHandler:
 
         fSize = fSize
 
-        t_range = self.grapes[0].t_range
+        t_range = self.grapes[self.bestgid].t_range
         t_range = t_range[::secrange]
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
         ax1.plot(t_range, meds, 'k', linewidth=2)  # color k for black
 
-        self.grapes[0].sunPosOver(fSize)
+        self.grapes[self.bestgid].sunPosOver(fSize)
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
         ax1.set_ylabel('Median Doppler shift, Hz', fontsize=fSize)
@@ -1216,6 +1243,7 @@ class GrapeHandler:
         ax1.grid(axis='y', alpha=0.5)
 
         plt.title('WWV 10 MHz Median Doppler Shift Plot \n'  # Title (top)
+                  + '# of Grapes: ' + str(len(self.grapes)) + ' || '
                   + self.month,
                   # + '2022',
                   fontsize=fSize)
@@ -1328,7 +1356,6 @@ def to_hr(timestamp):
     mi = timestamp.minute
     sec = timestamp.second
 
-    convhr = hr + mi/60 + sec/3600
+    convhr = hr + mi / 60 + sec / 3600
 
     return convhr
-
