@@ -1208,14 +1208,20 @@ class GrapeHandler:
 
         secrange, minrange = mblHandle(minBinLen)
 
-        meds = []  # contains medians of specified time bins across grapes
+        qmarks = [0.25, 0.40, 0.50, 0.60, 0.75]
+        q25, q40, q50, q60, q75 = [], [], [], [], []
+        qts = [q25, q40, q50, q60, q75]
+        qstyle = [('r', 0.25), ('b', 0.25), ('k', 1), ('b', 0.25), ('r', 0.25)]
 
         index = 0
         while not index > self.valslength:
             secs = []
             for vals in self.valscomb:
                 secs += vals[index:index + secrange]
-            meds.append(median(secs))
+            qt = np.quantile(secs, qmarks)
+            for i, q in enumerate(qts):
+                q.append(qt[i])
+
             index += secrange
 
         if ylim is None:
@@ -1228,12 +1234,13 @@ class GrapeHandler:
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
-        ax1.plot(t_range, meds, 'k', linewidth=2)  # color k for black
+        for i in range(0, 5):
+            ax1.plot(t_range, qts[i], qstyle[i][0], alpha=qstyle[i][1], linewidth=2)
 
         self.grapes[self.bestgid].sunPosOver(fSize)
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
-        ax1.set_ylabel('Median Doppler shift, Hz', fontsize=fSize)
+        ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
         ax1.set_xlim(0, 24)  # UTC day
         ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
         ax1.set_xticks(range(0, 25)[::2])
@@ -1241,8 +1248,9 @@ class GrapeHandler:
         ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
+        # ax1.legend(['25th Q', '40th Q', 'Median', '60th Q', '75th Q'], fontsize=fSize)
 
-        plt.title('WWV 10 MHz Median Doppler Shift Plot \n'  # Title (top)
+        plt.title('WWV 10 MHz Doppler Shift Plot (Q 25, 40, 50, 60, 75) \n'  # Title (top)
                   + '# of Grapes: ' + str(len(self.grapes)) + ' || '
                   + self.month,
                   # + '2022',
