@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import pylab as pl
 import numpy as np
 from math import floor, ceil
 from csv import reader
@@ -6,22 +7,21 @@ import os
 import imageio as imageio
 from re import sub
 from fitter import Fitter
-import pylab as pl
 from datetime import datetime
 import suncalc
 from statistics import median
 
-fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
-vnames = ['v', 'volt', 'voltage']
-pnames = ['db', 'decibel', 'p', 'pwr', 'power']
+fnames = ('d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency')
+vnames = ('v', 'volt', 'voltage')
+pnames = ('db', 'decibel', 'p', 'pwr', 'power')
 
 flabel = 'Doppler Shift, Hz'
-plabel = 'Relative Power, dB'
+plabel = 'Relative Power, B'
 vlabel = 'Voltage, V'
 
-months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-monthlen = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
-monthindex = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334]
+months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
+monthlen = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
+monthindex = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)
 
 # WWV Broadcasting tower coordinates based on:
 # https://latitude.to/articles-by-country/us/united-states/6788/wwv-radio-station
@@ -31,7 +31,7 @@ WWV_LON = -105.038933178
 
 class Grape:
 
-    def __init__(self, filename=None, filt=False, convun=True, med=True, count=False, n=1):
+    def __init__(self, filename=None, convun=True, filt=False, med=False, count=False, n=1):
         """
         Constructor for a Grape object
 
@@ -43,6 +43,10 @@ class Grape:
 
         # Metadata containers
         self.date = None
+        self.year = None
+        self.month = None
+        self.day = None
+
         self.node = None
         self.gridsq = None
 
@@ -145,11 +149,11 @@ class Grape:
         self.beacon = header_data[0][9]
 
         splitdat = self.date.split('-')
-        year = int(splitdat[0])
-        month = int(splitdat[1])
-        day = int(splitdat[2])
+        self.year = int(splitdat[0])
+        self.month = int(splitdat[1])
+        self.day = int(splitdat[2])
 
-        d = datetime(year, month, day, 1)  # datetime object for 1st hour of the day
+        d = datetime(self.year, self.month, self.day, 1)  # datetime object for 1st hour of the day
 
         self.blat = (self.lat + WWV_LAT) / 2
         self.blon = (self.lon + WWV_LON) / 2
@@ -169,7 +173,7 @@ class Grape:
             minute = int(utc_time[1])
             second = int(utc_time[2][0:2])
 
-            d = datetime(year, month, day, hour, minute, second)
+            d = datetime(self.year, self.month, self.day, hour, minute, second)
             self.sunpos.append(suncalc.get_position(d, self.lon, self.lat))
 
             sec = (float(hour) * 3600) + \
@@ -179,6 +183,10 @@ class Grape:
             self.time.append(sec)  # time list append
             self.freq.append(float(line[1]))  # doppler shift list append
             self.Vpk.append(float(line[2]))  # voltage list append
+
+        self.time = np.array(self.time)
+        self.freq = np.array(self.freq)
+        self.Vpk = np.array(self.Vpk)
 
         if len(self.time) != 0:
             if self.beacon == 'WWV10':
@@ -197,9 +205,9 @@ class Grape:
         :return: time, freq and Vpk values
         """
         if self.loaded:
-            return [self.time, self.freq, self.Vpk]
+            return np.array([self.time, self.freq, self.Vpk])
         else:
-            return None, None, None
+            return np.array([None, None, None])
 
     def getTFPr(self):
         """
@@ -208,9 +216,9 @@ class Grape:
         :return: time, freq and Vdb ranges
         """
         if self.converted:
-            return [self.t_range, self.f_range, self.Vdb_range]
+            return np.array([self.t_range, self.f_range, self.Vdb_range])
         else:
-            return None, None, None
+            return np.array([None, None, None])
 
     def butFilt(self, FILTERORDER=3, FILTERBREAK=0.005):
         """
@@ -245,14 +253,21 @@ class Grape:
         """
 
         if self.loaded:
-            self.t_range = [(t / timediv) for t in self.time]  # Time range (Hours)
-            self.f_range = [(f - fdel) for f in self.freq]  # Doppler shifts (del from 10GHz)
-            self.Vdb_range = [10 * np.log10(v ** 2) for v in
-                              self.Vpk]  # Relative power (Power is proportional to V^2; dB)
+            self.t_range = self.time / timediv
+            self.f_range = self.freq - fdel
+            self.Vdb_range = 10 * np.log10(self.Vpk ** 2)
+
+            # self.t_range = [(t / timediv) for t in self.time]  # Time range (Hours)
+            # self.f_range = [(f - fdel) for f in self.freq]  # Doppler shifts (del from 10GHz)
+            # self.Vdb_range = [10 * np.log10(v ** 2) for v in
+            #                   self.Vpk]  # Relative power (Power is proportional to V^2; dB)
             if self.filtered:
-                self.f_range_filt = [(f - fdel) for f in self.freq_filt]  # Doppler shifts (del from 10GHz)
-                self.Vdb_range_filt = [10 * np.log10(v ** 2) for v in
-                                       self.Vpk_filt]  # Relative power (Power is proportional to V^2; dB)
+                self.f_range_filt = self.freq_filt - fdel
+                self.Vdb_range_filt = 10 * np.log10(self.Vpk_filt ** 2)
+
+                # self.f_range_filt = [(f - fdel) for f in self.freq_filt]  # Doppler shifts (del from 10GHz)
+                # self.Vdb_range_filt = [10 * np.log10(v ** 2) for v in
+                #                        self.Vpk_filt]  # Relative power (Power is proportional to V^2; dB)
             self.converted = True
         else:
             print('Time, frequency and Vpk not loaded!')
@@ -284,6 +299,7 @@ class Grape:
         Bsr = to_hr(self.Bsuntimes['sunrise'])
         Bss = to_hr(self.Bsuntimes['sunset'])
 
+        # Note - improve with numpy arrays
         srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bsr))
         ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bss))
 
@@ -373,7 +389,7 @@ class Grape:
             ax1.set_ylabel(flabel, fontsize=fSize)
             ax1.set_xlim(0, 24)  # UTC day
             ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
-            ax1.set_xticks(range(0, 25)[::2])
+            ax1.set_xticks(np.arange(0, 25, 2))
             ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
             ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
             ax1.grid(axis='x', alpha=1)
@@ -415,15 +431,15 @@ class Grape:
         if self.converted:
             vals, label = self.valCh(valname)
 
-            if vals:
+            if vals is not None:
                 binlims = None
                 if valname in fnames:
-                    binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    binlims = np.arange(-2.5, 2.6, 0.1)
 
                 fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
-                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if binlims else ax1.hist(vals, color='r',
+                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if (binlims is not None) else ax1.hist(vals, color='r',
                                                                                                 edgecolor='k')
                 ax1.set_xlabel(label, fontsize=fSize)
                 ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
@@ -475,7 +491,7 @@ class Grape:
             else:
                 vals = None
 
-            if vals:
+            if vals is not None:
 
                 secrange, minrange = mblHandle(minBinLen)
 
@@ -513,7 +529,7 @@ class Grape:
 
                             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             # Plot the subsections
-                            binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                            binlims = np.arange(-2.5, 2.6, 0.1)
 
                             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                             ax1 = fig.add_subplot(111)
@@ -545,7 +561,7 @@ class Grape:
 
                     hours = hours[hrSel][binSel]
 
-                    binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    binlims = np.arange(-2.5, 2.6, 0.1)
                     fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                     fSize = fSize
@@ -616,8 +632,8 @@ class Grape:
             else:
                 vals = None
 
-            if vals:
-                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            if vals is not None:
+                binlims = np.arange(-2.5, 2.6, 0.1)
                 pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                 f = Fitter(vals, bins=binlims, distributions='common')
@@ -684,7 +700,7 @@ class Grape:
             else:
                 vals = None
 
-            if vals:
+            if vals is not None:
 
                 secrange, minrange = mblHandle(minBinLen)
 
@@ -722,7 +738,7 @@ class Grape:
                             print('Resolving subrange: ' + str(index) + ' ('
                                   + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                            binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                            binlims = np.arange(-2.5, 2.6, 0.1)
                             pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                             f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
@@ -765,7 +781,7 @@ class Grape:
 
                     hours = hours[hrSel][binSel]
 
-                    binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    binlims = np.arange(-2.5, 2.6, 0.1)
                     pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                     f = Fitter(hours, bins=binlims, timeout=10, distributions='common')
@@ -833,7 +849,7 @@ class Grape:
             else:
                 vals = None
 
-            if vals:
+            if vals is not None:
 
                 # Make subsections and begin plot generation
                 subranges = []  # contains equally sized ranges of data
@@ -866,7 +882,7 @@ class Grape:
                         # print('Resolving subrange: ' + str(index) + ' ('
                         #       + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        binlims = np.arange(-2.5, 2.6, 0.1)
 
                         f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                         f.fit()
@@ -884,8 +900,8 @@ class Grape:
                 # Sets y range of plot
                 if ylim is None:
                     # truncates maximum and minimum values
-                    bottom = round_down(min(yrange), 1)
-                    top = round_up(max(yrange), 1)
+                    bottom = round_down(yrange.min(), 1)
+                    top = round_up(yrange.max(), 1)
 
                     # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
                     if valname in fnames:
@@ -904,15 +920,18 @@ class Grape:
                 ax1.set_xlabel('UTC Hour', fontsize=fSize)
                 ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
                 ax1.set_xlim(0, 24)  # UTC day
-                ax1.set_xticks(range(0, 25)[::2])
+                ax1.set_xticks(np.arange(0, 25, 2))
                 ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
                 ax1.grid(axis='x', alpha=1)
                 ax1.tick_params(axis='x',
                                 labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                 ax1.tick_params(axis='y', labelsize=fSize - 2)
 
-                fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
+                rng = np.arange(0, len(self.bestFits))
+                fitTimeRange = (rng / len(self.bestFits)) * 24
+                # fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
                 self.bestFits = [list(i.keys())[0] for i in self.bestFits]
+                # self.bestFits = [list(i.keys())[0] for i in self.bestFits]
 
                 ax3 = ax1.twinx()
                 ax3.scatter(fitTimeRange, self.bestFits, color='r')
@@ -1010,7 +1029,7 @@ class GrapeHandler:
                 print('GrapeHandler not loaded (no valid grapes) \n')
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
-                  'Please try again.')
+                  'Please try again. \n')
 
     def multGrapeDistPlot(self, figname):
         """
@@ -1024,7 +1043,7 @@ class GrapeHandler:
         for i in self.valscomb:
             valscombline += i
 
-        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        binlims = np.arange(-2.5, 2.6, 0.1)
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
@@ -1092,7 +1111,7 @@ class GrapeHandler:
 
                 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 # Plot the subsections
-                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                binlims = np.arange(-2.5, 2.6, 0.1)
 
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
@@ -1164,7 +1183,7 @@ class GrapeHandler:
                 self.dMeds.append(0)
                 self.nMeds.append(0)
 
-        xrange = range(0, len(self.grapes))
+        xrange = np.arange(0, len(self.grapes))
 
         plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         plt.plot(xrange, self.dMeds, linewidth=2, color='r')
@@ -1197,9 +1216,10 @@ class GrapeHandler:
         plt.show()
         plt.close()
 
-    def medTrend(self, figname, ylim=None, minBinLen=5, fSize=22):
+    def tileTrend(self, figname, ylim=None, minBinLen=5, fSize=22):
         """
-        Plots the median doppler shift of specified timebins of contained grapes
+        Plots the 25th, 40th, 50th, 60th, and 75th quartiles for the monthly doppler shift of specified timebins of
+        contained grapes
 
         :param figname: string value for the beginning of each image filename
         :param minBinLen: an integer value for the length of every time bin (minutes)
@@ -1243,7 +1263,7 @@ class GrapeHandler:
         ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
         ax1.set_xlim(0, 24)  # UTC day
         ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
-        ax1.set_xticks(range(0, 25)[::2])
+        ax1.set_xticks(np.arange(0, 25, 2))
         ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
         ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
         ax1.grid(axis='x', alpha=1)
@@ -1257,6 +1277,93 @@ class GrapeHandler:
                   fontsize=fSize)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
+
+    def spreadTrend(self, figname, minBinLen=5, fSize=22):
+        """
+        Plots the difference between the 25th and 75th percentiles of the data (doppler shift) over time
+
+        :param figname: string value for the beginning of each image filename
+        :param minBinLen: an integer value for the length of every time bin (minutes)
+        :return: .png plot into local repository
+        """
+
+        secrange, minrange = mblHandle(minBinLen)
+
+        # Gets the months and years for each grape
+        monthMark = [0]*len(self.grapes)
+        yearMark = [0]*len(self.grapes)
+        for i, grape in enumerate(self.grapes):
+            monthMark[i] = grape.month
+            yearMark[i] = grape.year
+
+        # Seperates data from seperate months into own month index
+        months = [[]]
+        mID = monthMark[0]
+        yID = yearMark[0]
+        myLabels = [[str(yID), str(mID)]]
+        count = 0
+        for i in np.arange(0, len(self.grapes)):
+            if monthMark[i] > mID:
+                mID = monthMark[i]
+                count += 1
+                months.append([])
+                myLabels.append([str(yID), str(mID)])
+            elif yearMark[i] > yID:
+                yID = yearMark[i]
+                count += 1
+                months.append([])
+                myLabels.append([str(yID), str(mID)])
+
+            months[count].append(self.valscomb[i])
+
+        qmarks = [0.25, 0.75]
+
+        # calculates the difference between the 25th and 75th percentiles
+        # of specified bins across all grapes in each month
+        monthDiff = []
+        for month in months:
+            q25, q75 = [], []
+            qts = [q25, q75]
+            index = 0
+            while not index > self.valslength:
+                secs = []
+                for vals in month:
+                    secs += vals[index:index + secrange]
+                qt = np.quantile(secs, qmarks)
+                for i, q in enumerate(qts):
+                    q.append(qt[i])
+                index += secrange
+
+            monthDiff.append([q75[i]-q25[i] for i in np.arange(0, len(q75))])
+
+        # takes the t_range from the grape with the most data (longest day)
+        t_range = self.grapes[self.bestgid].t_range
+        t_range = t_range[::secrange]
+
+        count = 0
+        for diff in monthDiff:
+            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+            ax1 = fig.add_subplot(111)
+            ax1.plot(t_range, diff, linewidth=2)
+            # t_range = [t_range[i] + 24 for i in range(0,len(t_range))]
+
+            ax1.set_xlabel('Time UTC', fontsize=fSize)
+            ax1.set_ylabel('IQR, Hz', fontsize=fSize)
+            ax1.set_ylim(0, 1.2)  # UTC day
+            ax1.set_xlim(0, 24)  # UTC day
+            ax1.set_xticks(np.arange(0, 25, 2))
+            ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            ax1.grid(axis='x', alpha=1)
+            ax1.grid(axis='y', alpha=0.5)
+
+            plt.title('WWV 10 MHz Doppler Shift Interquartile Range \n'  # Title (top)
+                      + '# of Grapes: ' + str(len(self.grapes)) + ' || '
+                      + myLabels[count][0] + '-' + myLabels[count][1],
+                      fontsize=fSize)
+            plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+            plt.close()
+            count += 1
 
 
 def movie(dirname, gifname, fps=10):
@@ -1283,7 +1390,7 @@ def movie(dirname, gifname, fps=10):
         filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
         frames = []
-        for t in range(0, len(filenames)):
+        for t in np.arange(0, len(filenames)):
             image = imageio.v2.imread(filenames[t])
             frames.append(image)
 
@@ -1312,7 +1419,7 @@ def mblHandle(minBinLen):
         secrange = int(minBinLen * 60)
         minrange = int(60 / minBinLen)
     else:
-        hrDivs = [1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60]
+        hrDivs = (1, 2, 3, 4, 5, 6, 10, 12, 15, 20, 30, 60)
         binFix = 1
         for i in hrDivs:
             binFix = i if minBinLen > i else binFix
