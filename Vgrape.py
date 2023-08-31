@@ -388,24 +388,24 @@ class Grape:
                 vals = None
 
             if vals:
-                binlims = np.arange(-80, 5, 5)  # Bin limits (start, stop+step, step)
+                binlims = np.arange(0, 0.42, 0.02)  # Bin limits (start, stop+step, step)
 
                 fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
                 ax1.hist(vals, color='r', edgecolor='k', bins=binlims)
-                ax1.set_xlabel('Relative Power, dB', fontsize=fSize)
+                ax1.set_xlabel('Voltage, V', fontsize=fSize)
                 ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
                 ax1.grid(axis='x', alpha=1)
                 ax1.grid(axis='y', alpha=0.5)
                 ax1.tick_params(axis='x',
                                 labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                 ax1.tick_params(axis='y', labelsize=fSize - 2)
-                pl.xlim([-80, 0])  # Xaxis Range
-                pl.xticks(np.arange(-80, 5, 5))  # Xaxis plot range (start, stop+step, step)
+                pl.xlim([0, 0.40])  # Xaxis Range
+                pl.xticks(np.arange(0, 0.42, 0.02))  # Xaxis plot range (start, stop+step, step)
 
 
-                plt.title('WWV 10 MHz Relative Power Distribution Plot \n'  # Title (top)
+                plt.title('WWV 10 MHz Voltage Distribution Plot \n'  # Title (top)
                           # 'Node: N0000020    Gridsquare: FN20vr \n'
                           # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.date + ' UTC',
@@ -481,17 +481,17 @@ class Grape:
 
                             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             # Plot the subsections
-                            binlims = np.arange(-80, 5, 5)  # Range (start, stop+step, step)
+                            binlims = np.arange(0, 0.42, 0.02)  # Range (start, stop+step, step)
 
                             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                             ax1 = fig.add_subplot(111)
                             ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
-                            ax1.set_xlabel('Relative Power, dB')
+                            ax1.set_xlabel('Voltage, V')
                             ax1.set_ylabel('Counts, N', color='r')
-                            ax1.set_xlim([-80, 0])  # Xaxis Range (start, stop)
-                            ax1.set_xticks(np.arange(-80, 5, 5))
+                            ax1.set_xlim([0, 0.40])  # Xaxis Range (start, stop)
+                            ax1.set_xticks(np.arange(0, 0.42, 0.02))
 
-                            plt.title('WWV 10 MHz Relative Power Distribution Plot \n'
+                            plt.title('WWV 10 MHz Voltage Distribution Plot \n'
                                       'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
                                                                                                  'Node: N0000020    Gridsquare: FN20vr \n'
                                                                                                  'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
@@ -513,22 +513,22 @@ class Grape:
 
                     hours = hours[hrSel][binSel]
 
-                    binlims = np.arange(-80, 5, 5)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                    binlims = np.arange(0, 0.42, 0.02)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                     fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                     fSize = fSize
                     ax1 = fig.add_subplot(111)
                     ax1.hist(hours, color='r', edgecolor='k', bins=binlims)
-                    ax1.set_xlabel('Relative Power, dB', fontsize=fSize)
+                    ax1.set_xlabel('Voltage, V', fontsize=fSize)
                     ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
-                    ax1.set_xlim([-80, 0])  # Doppler Shift Range
-                    ax1.set_xticks(np.arange(-80, 5, 5))
+                    ax1.set_xlim([0, 0.40])  # Doppler Shift Range
+                    ax1.set_xticks(np.arange(0, 0.42, 0.02))
                     ax1.tick_params(axis='x',
                                     labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                     # ax1.set_xticks(binlims[::2])
                     ax1.tick_params(axis='y', labelsize=fSize - 2)
 
-                    plt.title('WWV 10 MHz Relative Power Distribution Plot \n'
+                    plt.title('WWV 10 MHz Voltage Distribution Plot \n'
                               'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
                               # 'Node: N0000020    Gridsquare: FN20vr \n'
                               # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
@@ -585,7 +585,7 @@ class Grape:
                 vals = None
 
             if vals:
-                binlims = np.arange(-80, 5, 5)  # 5 db step (-80 -> 0)
+                binlims = np.arange(0, 0.42, 0.02)  # 0-0.40 by 0.02
                 pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                 f = Fitter(vals, bins=binlims, distributions='common')
@@ -595,10 +595,10 @@ class Grape:
                 f.hist()
 
                 fSize = 22
-                pl.xlabel('Relative Power, dB', fontsize=fSize)
+                pl.xlabel('Voltage, V', fontsize=fSize)
                 pl.ylabel('Normalized Counts', fontsize=fSize)
-                pl.xlim([-80, 0])  # X-axis Range
-                pl.xticks(np.arange(-80, 5, 5))
+                pl.xlim([0, 0.40])  # X-axis Range
+                pl.xticks(np.arange(0, 0.42, 0.02))
 
                 pl.legend(fontsize=fSize)
                 pl.grid(axis='x', alpha=1)
@@ -608,7 +608,7 @@ class Grape:
                 pl.tick_params(axis='y', labelsize=fSize - 2)
 
 
-                pl.title('Fitted Relative Power Distribution \n'
+                pl.title('Fitted Voltage Distribution \n'
                          # 'Node: N0000020    Gridsquare: FN20vr \n'
                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                          + self.date + ' UTC',
@@ -688,7 +688,7 @@ class Grape:
                             print('Resolving subrange: ' + str(index) + ' ('
                                   + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                            binlims = np.arange(-80, 5, 5)  # X-axis (start, stop+step, step)
+                            binlims = np.arange(0, 0.42, 0.02)  # X-axis (start, stop+step, step)
                             pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                             f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
@@ -700,15 +700,15 @@ class Grape:
                             f.hist()
 
                             fSize = fSize
-                            pl.xlabel('Relative Power, dB', fontsize=fSize)
+                            pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
-                            pl.xlim([-80, 0])  # Doppler Shift Range
-                            pl.xticks(np.arange(-80, 5, 5), fontsize=fSize / 1.4)
+                            pl.xlim([0, 0.40])  # Voltage Range
+                            pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
                             pl.yticks(fontsize=fSize / 1.4)
 
                             pl.legend(fontsize=fSize)
 
-                            pl.title('Fitted Relative Power Distribution \n'  # Title (top)
+                            pl.title('Fitted Voltage Distribution \n'  # Title (top)
                                      'Hour: ' + str(indexhr) +
                                      ' || 5-min bin: ' + str(index) + ' \n'
                                      # 'Node: N0000020    Gridsquare: FN20vr \n'
@@ -731,7 +731,7 @@ class Grape:
 
                     hours = hours[hrSel][binSel]
 
-                    binlims = np.arange(-80, 5, 5)
+                    binlims = np.arange(0, 0.42, 0.02)
                     pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                     f = Fitter(hours, bins=binlims, timeout=10, distributions='common')
@@ -743,15 +743,15 @@ class Grape:
                     f.hist()
 
                     fSize = fSize
-                    pl.xlabel('Relative Power, dB', fontsize=fSize)
+                    pl.xlabel('Voltage, V', fontsize=fSize)
                     pl.ylabel('Normalized Counts', fontsize=fSize)
-                    pl.xlim([-80, 0])  # Doppler Shift Range
-                    pl.xticks(np.arange(-80, 5, 5), fontsize=fSize / 1.4)
+                    pl.xlim([0, 0.40])  # Doppler Shift Range
+                    pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
                     pl.yticks(fontsize=fSize / 1.4)
 
                     pl.legend(fontsize=fSize)
 
-                    pl.title('Fitted Relative Power Distribution \n'  # Title (top)
+                    pl.title('Fitted Voltage Distribution \n'  # Title (top)
                              'Hour: ' + str(hrSel) +
                              ' || 5-min bin: ' + str(binSel) + ' \n'
                              # 'Node: N0000020    Gridsquare: FN20vr \n'
