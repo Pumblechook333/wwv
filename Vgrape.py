@@ -830,7 +830,7 @@ class Grape:
                         # print('Resolving subrange: ' + str(index) + ' ('
                         #       + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                        binlims = np.arange(-80, 5, 5)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        binlims = np.arange(0, 0.42, 0.02)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
                         f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                         f.fit()
@@ -842,8 +842,15 @@ class Grape:
 
                 frange = self.f_range if not self.filtered else self.f_range_filt
                 prange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
+                vrange = self.Vpk if not self.filtered else self.Vpk_filt
 
-                yrange = frange if (valname in fnames) else prange
+                #yrange = frange if (valname in fnames) else prange
+                if valname in fnames:
+                    yrange = frange
+                elif valname in vnames:
+                    yrange = vrange
+                else:
+                    yrange = prange
 
                 # Sets y range of plot
                 if ylim is None:
@@ -865,7 +872,7 @@ class Grape:
                 ax1 = fig.add_subplot(111)
                 ax1.plot(self.t_range, yrange, color='k')  # color k for black
                 ax1.set_xlabel('UTC Hour', fontsize=fSize)
-                ax1.set_ylabel('Relative Power, dB', fontsize=fSize)
+                ax1.set_ylabel('Voltage, v', fontsize=fSize)
                 ax1.set_xlim(0, 24)  # UTC day
                 ax1.set_xticks(range(0, 25)[::2])
                 ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
@@ -887,7 +894,7 @@ class Grape:
 
                 self.sunPosOver(fSize)
 
-                plt.title('WWV 10 MHz Relative Power Distribution PDFs \n'  # Title (top)
+                plt.title('WWV 10 Voltage Distribution PDFs \n'  # Title (top)
                           'Hour: 24 || BinLen: 5 min \n'
                           # 'Node: N0000020    Gridsquare: FN20vr \n'
                           # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
