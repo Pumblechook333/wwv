@@ -813,8 +813,6 @@ class Grape:
                             pl.close()
 
                             count += 1
-                    elif sel[0]=='all' and sel[1]=='all':
-                        print("Selection parameter not required for this call, retype without selection parameter")
 
                     else:#The original code, focusing on one hour one bin
                         hrSel = sel[0]
