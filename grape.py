@@ -296,8 +296,8 @@ class Grape:
         :return: day and night medians to grape object
         """
 
-        Bsr = to_hr(self.Bsuntimes['sunrise'])
-        Bss = to_hr(self.Bsuntimes['sunset'])
+        Bsr = conv_time(self.Bsuntimes['sunrise'])
+        Bss = conv_time(self.Bsuntimes['sunset'])
 
         # Note - improve with numpy arrays
         srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bsr))
@@ -331,17 +331,17 @@ class Grape:
         :return: vertical lines on current graph
         """
 
-        RXsr = to_hr(self.RXsuntimes['sunrise'])
-        RXsn = to_hr(self.RXsuntimes['solar_noon'])
-        RXss = to_hr(self.RXsuntimes['sunset'])
+        RXsr = conv_time(self.RXsuntimes['sunrise'])
+        RXsn = conv_time(self.RXsuntimes['solar_noon'])
+        RXss = conv_time(self.RXsuntimes['sunset'])
 
-        Bsr = to_hr(self.Bsuntimes['sunrise'])
-        Bsn = to_hr(self.Bsuntimes['solar_noon'])
-        Bss = to_hr(self.Bsuntimes['sunset'])
+        Bsr = conv_time(self.Bsuntimes['sunrise'])
+        Bsn = conv_time(self.Bsuntimes['solar_noon'])
+        Bss = conv_time(self.Bsuntimes['sunset'])
 
-        TXsr = to_hr(self.TXsuntimes['sunrise'])
-        TXsn = to_hr(self.TXsuntimes['solar_noon'])
-        TXss = to_hr(self.TXsuntimes['sunset'])
+        TXsr = conv_time(self.TXsuntimes['sunrise'])
+        TXsn = conv_time(self.TXsuntimes['solar_noon'])
+        TXss = conv_time(self.TXsuntimes['sunset'])
 
         RXsrMark = plt.axvline(x=RXsr, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
         RXsnMark = plt.axvline(x=RXsn, color='g', linewidth=3, linestyle='dashed', alpha=0.3)
@@ -962,11 +962,11 @@ class Grape:
 
 
 class GrapeHandler:
-    def __init__(self, dirnames, filt=False, comb=True):
+    def __init__(self, dirnames, filt=False, comb=True, tShift=True):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
-        :param dirnames: string value for the local directory in which the intended data files (.csv) are located
+        :param dirnames: list [] of string values for the local directories in which the intended data files (.csv) are located
         :param filt: boolean value dictating whether or not each grape is filtered upon loading (default False)
         """
         self.grapes = []
@@ -988,48 +988,68 @@ class GrapeHandler:
                 break
 
         if self.valid:
-
-            filenames = []
-            for directory in dirnames:
-                # iterate over files in that directory
-                for filename in os.scandir(directory):
-                    if filename.is_file():
-                        filenames.append('./' + directory + '/' + filename.name)
-
-            # Unneeded sorting step (only feed sorted files)
-            # filenames.sort(key=lambda f: int(sub('\D', '', f)))
-
-            for filename in filenames:
-                g = Grape(filename, filt=filt)
-                if g.loaded:
-                    self.grapes.append(g)
-
-            if len(self.grapes) != 0:
-                self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
-
-                if comb:
-                    for gid, grape in enumerate(self.grapes):
-                        vals = grape.getTFPr()  # get time, freq and power from grape
-                        t = vals[0]
-                        f = vals[1]
-                        # An array of arrays
-                        self.timecomb.append(t)
-                        self.valscomb.append(f)
-
-                        if len(f) > self.valslength:
-                            self.valslength = len(f)
-                            self.bestgid = gid
-
-                    print('GrapeHandler loaded with combvals \n')
-                else:
-                    print('GrapeHandler loaded without combvals (no multGrapeDist, medTrend) \n')
-
-            else:
-                self.valid = False
-                print('GrapeHandler not loaded (no valid grapes) \n')
+            self.load(dirnames, filt, comb, tShift)
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
                   'Please try again. \n')
+
+    def load(self, dirnames, filt, comb, tShift):
+
+        filenames = []
+        for directory in dirnames:
+            # iterate over files in that directory
+            for filename in os.scandir(directory):
+                if filename.is_file():
+                    filenames.append('./' + directory + '/' + filename.name)
+
+        # Unneeded sorting step (only feed sorted files)
+        # filenames.sort(key=lambda f: int(sub('\D', '', f)))
+
+        for filename in filenames:
+            g = Grape(filename, filt=filt)
+            if g.loaded:
+                self.grapes.append(g)
+
+        if len(self.grapes) != 0:
+            self.month = self.grapes[0].date[0:7]  # Attributes the date of the first grape
+
+            if comb:
+                firstSunrise = conv_time(self.grapes[0].Bsuntimes['sunrise'], 's')
+
+                for gid, grape in enumerate(self.grapes):
+                    vals = grape.getTFPr()  # get time, freq and power from grape
+                    t = np.array(vals[0])
+                    f = np.array(vals[1])
+
+                    if tShift:
+                        thisSunrise = conv_time(grape.Bsuntimes['sunrise'], 's')
+                        sunDiff = int(thisSunrise - firstSunrise)
+
+                        t = np.roll(t, sunDiff)
+                        f = np.roll(f, sunDiff)
+
+                        if sunDiff > 0:
+                            t[0:sunDiff] = 0
+                            f[0:sunDiff] = 0
+                        if sunDiff < 0:
+                            t[sunDiff::] = 0
+                            f[sunDiff::] = 0
+
+                    # An array of arrays
+                    self.timecomb.append(t)
+                    self.valscomb.append(f)
+
+                    if len(f) > self.valslength:
+                        self.valslength = len(f)
+                        self.bestgid = gid
+
+                print('GrapeHandler loaded with combvals \n')
+            else:
+                print('GrapeHandler loaded without combvals (no multGrapeDist, medTrend) \n')
+
+        else:
+            self.valid = False
+            print('GrapeHandler not loaded (no valid grapes) \n')
 
     def multGrapeDistPlot(self, figname):
         """
@@ -1081,7 +1101,7 @@ class GrapeHandler:
         while not index > self.valslength:
             secs = []
             for vals in self.valscomb:
-                secs += vals[index:index + secrange]
+                secs += vals[index:index + secrange].tolist()
             subranges.append(secs)
             index += secrange
 
@@ -1123,8 +1143,8 @@ class GrapeHandler:
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
                           'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                     'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                                                                     # 'Node: N0000020    Gridsquare: FN20vr \n'
+                                                                                     # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.month + ' UTC',
                           fontsize='10')
 
@@ -1237,7 +1257,7 @@ class GrapeHandler:
         while not index > self.valslength:
             secs = []
             for vals in self.valscomb:
-                secs += vals[index:index + secrange]
+                secs += vals[index:index + secrange].tolist()
             qt = np.quantile(secs, qmarks)
             for i, q in enumerate(qts):
                 q.append(qt[i])
@@ -1247,8 +1267,6 @@ class GrapeHandler:
         if ylim is None:
             ylim = [-1, 1]
 
-        fSize = fSize
-
         t_range = self.grapes[self.bestgid].t_range
         t_range = t_range[::secrange]
 
@@ -1257,7 +1275,7 @@ class GrapeHandler:
         for i in range(0, 5):
             ax1.plot(t_range, qts[i], qstyle[i][0], alpha=qstyle[i][1], linewidth=2)
 
-        self.grapes[self.bestgid].sunPosOver(fSize)
+        self.grapes[0].sunPosOver(fSize)
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
         ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
@@ -1278,7 +1296,7 @@ class GrapeHandler:
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
 
-    def spreadTrend(self, figname, minBinLen=5, fSize=22):
+    def spreadTrend(self, figname, minBinLen=5, fSize=22, ylim=(0, 1.2)):
         """
         Plots the difference between the 25th and 75th percentiles of the data (doppler shift) over time
 
@@ -1328,7 +1346,7 @@ class GrapeHandler:
             while not index > self.valslength:
                 secs = []
                 for vals in month:
-                    secs += vals[index:index + secrange]
+                    secs += vals[index:index + secrange].tolist()
                 qt = np.quantile(secs, qmarks)
                 for i, q in enumerate(qts):
                     q.append(qt[i])
@@ -1347,9 +1365,11 @@ class GrapeHandler:
             ax1.plot(t_range, diff, linewidth=2)
             # t_range = [t_range[i] + 24 for i in range(0,len(t_range))]
 
+            self.grapes[0].sunPosOver(fSize)
+
             ax1.set_xlabel('Time UTC', fontsize=fSize)
             ax1.set_ylabel('IQR, Hz', fontsize=fSize)
-            ax1.set_ylim(0, 1.2)  # UTC day
+            ax1.set_ylim(ylim)  # UTC day
             ax1.set_xlim(0, 24)  # UTC day
             ax1.set_xticks(np.arange(0, 25, 2))
             ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
@@ -1364,6 +1384,22 @@ class GrapeHandler:
             plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
             plt.close()
             count += 1
+
+    def dopPowPlots(self, dirname, figname, ylim=None, fSize=22):
+
+        # If using subdirectories in dirname, ensure parent folder has already been created
+        if not os.path.exists(dirname):
+            os.mkdir(dirname)
+
+        count = 0
+        for grape in self.grapes:
+            print('Resolving grape: ' + str(count) + ' ('
+                  + str(floor((count / len(self.grapes)) * 100)) + '% complete) \n'
+                  + '*************************************\n')
+
+            grape.dopPowPlot(dirname + '/' + figname + str(count + 1), ylim=ylim, fSize=fSize)
+            count += 1
+
 
 
 def movie(dirname, gifname, fps=10):
@@ -1459,10 +1495,11 @@ def round_down(n, decimals=0):
     return floor(n * multiplier) / multiplier
 
 
-def to_hr(timestamp):
+def conv_time(timestamp, unit='h'):
     """
     Converts timestamps created for sun position times (hr, min, sec) by sunpy into decimal hours
 
+    :param unit: String hint for what to convert the timestamp to
     :param timestamp: timestamp object containing hr, min, sec
     :return: time in decimal hours
     """
@@ -1471,6 +1508,11 @@ def to_hr(timestamp):
     mi = timestamp.minute
     sec = timestamp.second
 
-    convhr = hr + mi / 60 + sec / 3600
+    if unit == 'h':
+        convun = hr + mi / 60 + sec / 3600
+    if unit == 'm':
+        convun = hr*60 + mi + sec/60
+    if unit == 's':
+        convun = hr*3600 + mi*60 + sec
 
-    return convhr
+    return convun

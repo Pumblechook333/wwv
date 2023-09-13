@@ -1,0 +1,11 @@
+Node - RadioID - Gridsqr - Beacon 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ 
+
+N00009 - G1 - FN20ge - WWV10
+
+N0000007 - G1 - EN91fh - WWV10
+
+N0000008 - S1 - EN91fl - WWV10
+
+N0000013 - S1 - DN70ln - WWV10
+
