@@ -1127,7 +1127,7 @@ class GrapeHandler:
             plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
 
         plt.xlabel('Month', fontsize=22)
-        plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
+        plt.ylabel('Median Relative Power, dB', fontsize=22)
         # plt.ylim([-1.5, 1.5])
         plt.xticks(monthindex, months)
         plt.tick_params(axis='x', labelsize=20)
@@ -1137,7 +1137,7 @@ class GrapeHandler:
         plt.legend(["Sun Up Medians",
                     "Sun Down Medians"], fontsize=22)
 
-        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
+        plt.title('WWV 10 MHz Relative Power Median Trend \n',  # Title (top)
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
 
@@ -1172,7 +1172,7 @@ class GrapeHandler:
             index += secrange
 
         if ylim is None:
-            ylim = [-1, 1]
+            ylim = [-80, 0]
 
         fSize = fSize
 
@@ -1186,7 +1186,7 @@ class GrapeHandler:
         self.grapes[0].sunPosOver(fSize)
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
-        ax1.set_ylabel('Median Doppler shift, Hz', fontsize=fSize)
+        ax1.set_ylabel('Median Relative Power, dB', fontsize=fSize)
         ax1.set_xlim(0, 24)  # UTC day
         ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
         ax1.set_xticks(range(0, 25)[::2])
@@ -1195,7 +1195,7 @@ class GrapeHandler:
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
 
-        plt.title('WWV 10 MHz Median Doppler Shift Plot \n'  # Title (top)
+        plt.title('WWV 10 MHz Median Relative Plot \n'  # Title (top)
                   + self.month,
                   # + '2022',
                   fontsize=fSize)

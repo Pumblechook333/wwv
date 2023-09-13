@@ -726,16 +726,17 @@ class Grape:
 
                         indexhr += 1
                 else:
-                    if sel[0]=='all':#One bin for every hour
+                    if sel[0]=='all':#One bin for every hour sel['all', 0]
+                        count = 0
                         binSel = sel[1]
                         for i in range(0, 24):
                             hrSel = i
-                            hours = hours[hrSel][binSel]#binSel returns 'float object not subscriptable' on second iteration
+                            thisHour = hours[hrSel][binSel]
 
                             binlims = np.arange(0, 0.42, 0.02)
                             pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
-                            f = Fitter(hours, bins=binlims, timeout=10, distributions='common')
+                            f = Fitter(thisHour, bins=binlims, timeout=10, distributions='common')
                             f.fit()
                             summary = f.summary()
                             print(summary)
@@ -762,10 +763,59 @@ class Grape:
 
                             pl.show()
 
-                            pl.savefig(str(figname) + '.png', dpi=250,
+                            pl.savefig(str(figname) + '_' + str(count) + '.png', dpi=250,
                                        orientation='landscape')
 
                             pl.close()
+
+                            count += 1
+                    elif sel[1]=='all':#All bins in specified hour sel[0, 'all']
+                        count = 0
+                        hrSel = sel[0]
+                        bins = int(60/minBinLen)
+                        for i in range(0, bins):
+                            binSel = i
+                            thisHour = hours[hrSel][binSel]
+
+                            binlims = np.arange(0, 0.42, 0.02)
+                            pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+                            f = Fitter(thisHour, bins=binlims, timeout=10, distributions='common')
+                            f.fit()
+                            summary = f.summary()
+                            print(summary)
+                            self.bestFits.append(f.get_best())
+
+                            f.hist()
+
+                            fSize = fSize
+                            pl.xlabel('Voltage, V', fontsize=fSize)
+                            pl.ylabel('Normalized Counts', fontsize=fSize)
+                            pl.xlim([0, 0.40])  # Doppler Shift Range
+                            pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
+                            pl.yticks(fontsize=fSize / 1.4)
+
+                            pl.legend(fontsize=fSize)
+
+                            pl.title('Fitted Voltage Distribution \n'  # Title (top)
+                                     'Hour: ' + str(hrSel) +
+                                     ' || 5-min bin: ' + str(binSel) + ' \n'
+                                     # 'Node: N0000020    Gridsquare: FN20vr \n'
+                                     # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                     + self.date + ' UTC',
+                                     fontsize=fSize)
+
+                            pl.show()
+
+                            pl.savefig(str(figname) + '_' + str(count) + '.png', dpi=250,
+                                       orientation='landscape')
+
+                            pl.close()
+
+                            count += 1
+                    elif sel[0]=='all' and sel[1]=='all':
+                        print("Selection parameter not required for this call, retype without selection parameter")
+
                     else:#The original code, focusing on one hour one bin
                         hrSel = sel[0]
                         binSel = sel[1]
@@ -806,46 +856,6 @@ class Grape:
                                    orientation='landscape')
 
                         pl.close()
-                    #Commented out so I can have a copy of the original
-                    # hrSel = sel[0]
-                    # binSel = sel[1]
-                    #
-                    # hours = hours[hrSel][binSel]
-                    #
-                    # binlims = np.arange(0, 0.42, 0.02)
-                    # pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-                    #
-                    # f = Fitter(hours, bins=binlims, timeout=10, distributions='common')
-                    # f.fit()
-                    # summary = f.summary()
-                    # print(summary)
-                    # self.bestFits.append(f.get_best())
-                    #
-                    # f.hist()
-                    #
-                    # fSize = fSize
-                    # pl.xlabel('Voltage, V', fontsize=fSize)
-                    # pl.ylabel('Normalized Counts', fontsize=fSize)
-                    # pl.xlim([0, 0.40])  # Doppler Shift Range
-                    # pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
-                    # pl.yticks(fontsize=fSize / 1.4)
-                    #
-                    # pl.legend(fontsize=fSize)
-                    #
-                    # pl.title('Fitted Voltage Distribution \n'  # Title (top)
-                    #          'Hour: ' + str(hrSel) +
-                    #          ' || 5-min bin: ' + str(binSel) + ' \n'
-                    #          # 'Node: N0000020    Gridsquare: FN20vr \n'
-                    #          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                    #          + self.date + ' UTC',
-                    #          fontsize=fSize)
-                    #
-                    # pl.show()
-                    #
-                    # pl.savefig(str(figname) + '.png', dpi=250,
-                    #            orientation='landscape')
-                    #
-                    # pl.close()
 
             else:
                 print("Please provide a valid valname!")
