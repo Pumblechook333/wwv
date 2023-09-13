@@ -952,7 +952,7 @@ class GrapeHandler:
                 vals = []
                 for grape in self.grapes:
                     vals = grape.getTFPr()  # get time, freq and power from grape
-                    vals = vals[1]  # select just the freq
+                    vals = vals[2]  # select just the freq
                     # An array of arrays
                     self.valscomb.append(vals)
 
@@ -977,17 +977,17 @@ class GrapeHandler:
         for i in self.valscomb:
             valscombline += i
 
-        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        binlims = np.arange(-80, 5, 5)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
         ax1.hist(valscombline, color='r', edgecolor='k', bins=binlims)
-        ax1.set_xlabel('Doppler Shift, Hz')
+        ax1.set_xlabel('Relative Power, dB')
         ax1.set_ylabel('Counts, N', color='r')
-        ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-        ax1.set_xticks(binlims[::2])
+        ax1.set_xlim([-80, 0])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.set_xticks(np.arange(-80, 5, 5))
 
-        plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
+        plt.title('WWV 10 MHz Relative Power Distribution Plot \n'  # Title (top)
                   'Node: N0000020    Gridsquare: FN20vr \n'
                   'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                   + self.month + ' UTC',
@@ -1045,20 +1045,20 @@ class GrapeHandler:
 
                 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 # Plot the subsections
-                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                binlims = np.arange(-80, 5, 5)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
                 ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
-                ax1.set_xlabel('Doppler Shift, Hz')
+                ax1.set_xlabel('Relative Power, dB')
                 ax1.set_ylabel('Counts, N', color='r')
-                ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.set_xticks(binlims[::2])
+                ax1.set_xlim([-80, 0])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.set_xticks(np.arange(-80, 5, 5))
 
-                plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                plt.title('WWV 10 MHz Relative Power Distribution Plot \n'
                           'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                     'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                     'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          'Node: N0000020    Gridsquare: FN20vr \n'
+                          'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.month + ' UTC',
                           fontsize='10')
 
