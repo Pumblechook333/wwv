@@ -1,3 +1,20 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""
+    This module contains the definitions for grape and grapeHandler objects, meant to process data from Grape SDR V1
+    stations receiving from WWV-10 in Fort Collins, Colorado
+
+    @Author: Sabastian Carlos Fernandes
+    @Date: 1.25.2023
+    @Version: 1.0
+    @Credit:    Dr. Gareth Perry [New Jersey Institute of Technology],
+                Tiago Trigo [New Jersey Institute of Technology],
+                John Gibbons [Case Western Reserve University],
+                Ham Radio Science Citizen Investigation (HamSCI)
+"""
+
+# Imports ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 import matplotlib.pyplot as plt
 import pylab as pl
 import numpy as np
@@ -10,6 +27,8 @@ from fitter import Fitter
 from datetime import datetime
 import suncalc
 from statistics import median
+
+# Global Variables ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fnames = ('d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency')
 vnames = ('v', 'volt', 'voltage')
@@ -30,6 +49,8 @@ WWV_LON = -105.038933178
 
 
 class Grape:
+
+    # Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def __init__(self, filename=None, convun=True, filt=False, med=False, count=False, n=1):
         """
@@ -359,6 +380,27 @@ class Grape:
                                                  "Solar Noon: " + str(round_down(Bsn, 2)) + " UTC",
                                                  "Sunset: " + str(round_down(Bss, 2)) + " UTC"], fontsize=fSize)
 
+    def count(self):
+        """
+        Employs collections.Counter to produce counts of individual values in grape value ranges
+
+        :return: discrete counts to grape object
+        """
+
+        from collections import Counter
+
+        if self.converted:
+            self.f_count = Counter(self.f_range)
+            self.Vpk_count = Counter(self.Vpk)
+            self.Vdb_count = Counter(self.Vdb_range)
+        else:
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
+            self.units()
+
+    # Plots ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def dopPowPlot(self, figname, ylim=None, fSize=22):
         """
         Plot the doppler shift and relative power over time of the signal
@@ -588,25 +630,6 @@ class Grape:
 
             else:
                 print("Please provide a valid valname!")
-        else:
-            print('Data units not yet converted! \n'
-                  'Attempting unit conversion... \n'
-                  'Please try again.')
-            self.units()
-
-    def count(self):
-        """
-        Employs collections.Counter to produce counts of individual values in grape value ranges
-
-        :return: discrete counts to grape object
-        """
-
-        from collections import Counter
-
-        if self.converted:
-            self.f_count = Counter(self.f_range)
-            self.Vpk_count = Counter(self.Vpk)
-            self.Vdb_count = Counter(self.Vdb_range)
         else:
             print('Data units not yet converted! \n'
                   'Attempting unit conversion... \n'
@@ -962,12 +985,17 @@ class Grape:
 
 
 class GrapeHandler:
+
+    # Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def __init__(self, dirnames, filt=False, comb=True, tShift=True):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
         :param dirnames: list [] of string values for the local directories in which the intended data files (.csv) are located
         :param filt: boolean value dictating whether or not each grape is filtered upon loading (default False)
+        :param comb: boolean indicating if the data should be combined for certain GrapeHandler functionality
+        :param tShift: boolean indicating if the data should be time shifted to align sunrises
         """
         self.grapes = []
         self.valscomb = []
@@ -994,6 +1022,15 @@ class GrapeHandler:
                   'Please try again. \n')
 
     def load(self, dirnames, filt, comb, tShift):
+        """
+        Script to load selected grape data into GrapeHandler object
+
+        :param dirnames: directory names for the targeted files to be loaded
+        :param filt: boolean indicating if the data will be filtered
+        :param comb: boolean indicating if the data should be combined for certain GrapeHandler functionality
+        :param tShift: boolean indicating if the data should be time shifted to align sunrises
+        :return:
+        """
 
         filenames = []
         for directory in dirnames:
@@ -1050,6 +1087,8 @@ class GrapeHandler:
         else:
             self.valid = False
             print('GrapeHandler not loaded (no valid grapes) \n')
+
+    # Plots ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def multGrapeDistPlot(self, figname):
         """
@@ -1386,6 +1425,15 @@ class GrapeHandler:
             count += 1
 
     def dopPowPlots(self, dirname, figname, ylim=None, fSize=22):
+        """
+        Produced Doppler-Power Plots for all contained grapes INDIVIDUALLY
+
+        :param dirname: directory to contain the plots
+        :param figname: string for prefix to each plot filename
+        :param ylim: bounds for the ylim of the doppler shift plot (default [-1,1])
+        :param fSize: integer scaling factor for the fontize of the plot text labels
+        :return:
+        """
 
         # If using subdirectories in dirname, ensure parent folder has already been created
         if not os.path.exists(dirname):
@@ -1400,7 +1448,7 @@ class GrapeHandler:
             grape.dopPowPlot(dirname + '/' + figname + str(count + 1), ylim=ylim, fSize=fSize)
             count += 1
 
-
+# Global Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 def movie(dirname, gifname, fps=10):
     """
@@ -1508,6 +1556,7 @@ def conv_time(timestamp, unit='h'):
     mi = timestamp.minute
     sec = timestamp.second
 
+    convun = 0
     if unit == 'h':
         convun = hr + mi / 60 + sec / 3600
     if unit == 'm':
