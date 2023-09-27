@@ -638,6 +638,8 @@ class Grape:
         :param figname: string value for the beginning of each image filename
         :param minBinLen: int value for the length of each time bin in minutes (should be a factor of 60)
         :return: .png plot into dirname repository
+
+        -Shorten voltage axis to focus more on small changes in voltages or use log-voltage on axis
         """
 
         if self.converted:
