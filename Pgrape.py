@@ -952,7 +952,7 @@ class GrapeHandler:
                 vals = []
                 for grape in self.grapes:
                     vals = grape.getTFPr()  # get time, freq and power from grape
-                    vals = vals[2]  # select just the freq
+                    vals = vals[2]  # select just the relative power
                     # An array of arrays
                     self.valscomb.append(vals)
 

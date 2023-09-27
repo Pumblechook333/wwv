@@ -259,15 +259,15 @@ class Grape:
         ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i]-Bss))
 
         if ssIndex < srIndex:
-            sunUp = self.Vdb_range[0:ssIndex]
-            for i in self.Vdb_range[srIndex:(len(self.Vdb_range)-1)]:
+            sunUp = self.Vpk[0:ssIndex]
+            for i in self.Vpk[srIndex:(len(self.Vpk)-1)]:
                 sunUp.append(i)
-            sunDown = self.Vdb_range[ssIndex:srIndex]
+            sunDown = self.Vpk[ssIndex:srIndex]
         else:
-            sunDown = self.Vdb_range[0:srIndex]
-            for i in self.Vdb_range[ssIndex:(len(self.Vdb_range) - 1)]:
+            sunDown = self.Vpk[0:srIndex]
+            for i in self.Vpk[ssIndex:(len(self.Vpk) - 1)]:
                 sunDown.append(i)
-            sunUp = self.Vdb_range[srIndex:ssIndex]
+            sunUp = self.Vpk[srIndex:ssIndex]
 
         self.dayMed = median(sunUp)
         self.nightMed = median(sunDown)
@@ -690,7 +690,7 @@ class Grape:
                             print('Resolving subrange: ' + str(index) + ' ('
                                   + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                            binlims = np.arange(0, 0.42, 0.02)  # X-axis (start, stop+step, step)
+                            binlims = np.arange(0, 0.156, 0.006)  # X-axis (start, stop+step, step)
                             pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                             f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
@@ -704,8 +704,8 @@ class Grape:
                             fSize = fSize
                             pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
-                            pl.xlim([0, 0.40])  # Voltage Range
-                            pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
+                            pl.xlim([0, 0.150])  # Voltage Range
+                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.4)
                             pl.yticks(fontsize=fSize / 1.4)
 
                             pl.legend(fontsize=fSize)
@@ -735,7 +735,7 @@ class Grape:
                             hrSel = i
                             thisHour = hours[hrSel][binSel]
 
-                            binlims = np.arange(0, 0.42, 0.02)
+                            binlims = np.arange(0, 0.156, 0.006)
                             pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                             f = Fitter(thisHour, bins=binlims, timeout=10, distributions='common')
@@ -749,8 +749,8 @@ class Grape:
                             fSize = fSize
                             pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
-                            pl.xlim([0, 0.40])  # Doppler Shift Range
-                            pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
+                            pl.xlim([0, 0.150])  # Doppler Shift Range
+                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.4)
                             pl.yticks(fontsize=fSize / 1.4)
 
                             pl.legend(fontsize=fSize)
@@ -779,7 +779,7 @@ class Grape:
                             binSel = i
                             thisHour = hours[hrSel][binSel]
 
-                            binlims = np.arange(0, 0.42, 0.02)
+                            binlims = np.arange(0, 0.156, 0.006)
                             pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                             f = Fitter(thisHour, bins=binlims, timeout=10, distributions='common')
@@ -793,8 +793,8 @@ class Grape:
                             fSize = fSize
                             pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
-                            pl.xlim([0, 0.40])  # Doppler Shift Range
-                            pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
+                            pl.xlim([0, 0.150])  # Doppler Shift Range
+                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.4)
                             pl.yticks(fontsize=fSize / 1.4)
 
                             pl.legend(fontsize=fSize)
@@ -822,7 +822,7 @@ class Grape:
 
                         hours = hours[hrSel][binSel]
 
-                        binlims = np.arange(0, 0.42, 0.02)
+                        binlims = np.arange(0, 0.156, 0.006)
                         pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                         f = Fitter(hours, bins=binlims, timeout=10, distributions='common')
@@ -836,9 +836,9 @@ class Grape:
                         fSize = fSize
                         pl.xlabel('Voltage, V', fontsize=fSize)
                         pl.ylabel('Normalized Counts', fontsize=fSize)
-                        pl.xlim([0, 0.40])  # Doppler Shift Range
-                        pl.xticks(np.arange(0, 0.42, 0.02), fontsize=fSize / 1.4)
-                        pl.yticks(fontsize=fSize / 1.4)
+                        pl.xlim([0, 0.150])  # Doppler Shift Range
+                        pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.7)
+                        pl.yticks(fontsize=fSize / 1.7)
 
                         pl.legend(fontsize=fSize)
 
@@ -1049,8 +1049,8 @@ class GrapeHandler:
             if comb:
                 vals = []
                 for grape in self.grapes:
-                    vals = grape.getTFPr()  # get time, freq and power from grape
-                    vals = vals[1]  # select just the freq
+                    vals = grape.getTFV()  # get time, freq and Voltage peak
+                    vals = vals[2]  # select just the voltage
                     # An array of arrays
                     self.valscomb.append(vals)
 
@@ -1075,7 +1075,7 @@ class GrapeHandler:
         for i in self.valscomb:
             valscombline += i
 
-        binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        binlims = np.arrange(0, 0.156, 0.006)  # 10mV bins(0 to 150mV)
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
