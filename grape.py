@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-    This module contains the definitions for grape and grapeHandler objects, meant to process data from Grape SDR V1
+    This module contains the definitions for grape and grapeHandler objects, intended to process data from Grape SDR V1
     stations receiving from WWV-10 in Fort Collins, Colorado
 
-    @Author: Sabastian Carlos Fernandes
+    @Author: Sabastian Carlos Fernandes [New Jersey Institute of Technology]
     @Date: 1.25.2023
     @Version: 1.0
     @Credit:    Dr. Gareth Perry [New Jersey Institute of Technology],
@@ -26,7 +26,6 @@ from re import sub
 from fitter import Fitter
 from datetime import datetime
 import suncalc
-from statistics import median
 
 # Global Variables ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -38,9 +37,9 @@ flabel = 'Doppler Shift, Hz'
 plabel = 'Relative Power, B'
 vlabel = 'Voltage, V'
 
-months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec')
-monthlen = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31)
-monthindex = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334)
+months = ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec', '')
+monthlen = (31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31, 0)
+monthindex = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365)
 
 # WWV Broadcasting tower coordinates based on:
 # https://latitude.to/articles-by-country/us/united-states/6788/wwv-radio-station
@@ -113,6 +112,9 @@ class Grape:
         self.bestFits = None
         self.dayMed = None
         self.nightMed = None
+
+        self.dayIQR = None
+        self.nightIQR = None
 
         # Flags to keep track of if the load() or units() function have been called, respectively
         self.loaded = False
@@ -327,20 +329,28 @@ class Grape:
         if ssIndex < srIndex:
             sunUp = self.f_range[0:ssIndex]
             for i in self.f_range[srIndex:(len(self.f_range) - 1)]:
-                sunUp.append(i)
+                # sunUp.append(i)
+                sunUp = np.append(sunUp, i)
             sunDown = self.f_range[ssIndex:srIndex]
         else:
             sunDown = self.f_range[0:srIndex]
             for i in self.f_range[ssIndex:(len(self.f_range) - 1)]:
-                sunDown.append(i)
+                # sunDown.append(i)
+                sunDown = np.append(sunDown, i)
             sunUp = self.f_range[srIndex:ssIndex]
 
+        qmarks = [0.25, 0.50, 0.75]
+
         if len(sunUp) > 1:
-            self.dayMed = median(sunUp)
+            qt = np.quantile(sunUp, qmarks)
+            self.dayMed = qt[1]
+            self.dayIQR = qt[2] - qt[0]
         else:
             print('No sunup detected (dayMed None)\n')
         if len(sunDown) > 1:
-            self.nightMed = median(sunDown)
+            qt = np.quantile(sunDown, qmarks)
+            self.nightMed = qt[1]
+            self.nightIQR = qt[2] - qt[0]
         else:
             print('No sundown detected (nightMed None)\n')
 
@@ -988,7 +998,7 @@ class GrapeHandler:
 
     # Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def __init__(self, dirnames, filt=False, comb=True, tShift=True):
+    def __init__(self, dirnames, filt=False, comb=True, med=False, tShift=True):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
@@ -1016,18 +1026,19 @@ class GrapeHandler:
                 break
 
         if self.valid:
-            self.load(dirnames, filt, comb, tShift)
+            self.load(dirnames, filt, comb, med, tShift)
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
                   'Please try again. \n')
 
-    def load(self, dirnames, filt, comb, tShift):
+    def load(self, dirnames, filt, comb, med, tShift):
         """
         Script to load selected grape data into GrapeHandler object
 
         :param dirnames: directory names for the targeted files to be loaded
         :param filt: boolean indicating if the data will be filtered
         :param comb: boolean indicating if the data should be combined for certain GrapeHandler functionality
+        :param med: boolean indicating if the day / night medians should be calculated for each Grape
         :param tShift: boolean indicating if the data should be time shifted to align sunrises
         :return:
         """
@@ -1043,7 +1054,7 @@ class GrapeHandler:
         # filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
         for filename in filenames:
-            g = Grape(filename, filt=filt)
+            g = Grape(filename, filt=filt, med=med)
             if g.loaded:
                 self.grapes.append(g)
 
@@ -1222,59 +1233,6 @@ class GrapeHandler:
             grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen, ylim=ylim)
             count += 1
 
-    def yearMedTrend(self, figname):
-        """
-        Plots the daily medians of all of GrapeHandler's grapes across the year
-
-        :param figname: Filename of the produced plot image
-        :return: .png plot into local repository
-        """
-
-        for grape in self.grapes:
-            if grape.beacon == 'WWV10':
-                if abs(grape.dayMed) < 100 and abs(grape.nightMed) < 100:
-                    self.dMeds.append(grape.dayMed)
-                    self.nMeds.append(grape.nightMed)
-                else:
-                    self.dMeds.append(0)
-                    self.nMeds.append(0)
-            else:
-                self.dMeds.append(0)
-                self.nMeds.append(0)
-
-        xrange = np.arange(0, len(self.grapes))
-
-        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-        plt.plot(xrange, self.dMeds, linewidth=2, color='r')
-        plt.plot(xrange, self.nMeds, linewidth=2, color='b')
-
-        for m in monthindex:
-            plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
-
-        plt.xlabel('Month', fontsize=22)
-        plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
-        # plt.ylim([-1.5, 1.5])
-        plt.xticks(monthindex, months)
-        plt.tick_params(axis='x', labelsize=20)
-        plt.tick_params(axis='y', labelsize=20)
-        plt.grid(axis='x', alpha=0.3)
-        plt.grid(axis='y', alpha=1)
-        plt.legend(["Sun Up Medians",
-                    "Sun Down Medians"], fontsize=22)
-
-        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
-                  fontsize=22)
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
-
-        # print(str(max(self.dMeds)))
-        # print(str(max(self.nMeds)))
-        # print()
-        # print(str(min(self.dMeds)))
-        # print(str(min(self.nMeds)))
-
-        plt.show()
-        plt.close()
-
     def tileTrend(self, figname, ylim=None, minBinLen=5, fSize=22):
         """
         Plots the 25th, 40th, 50th, 60th, and 75th quartiles for the monthly doppler shift of specified timebins of
@@ -1447,6 +1405,148 @@ class GrapeHandler:
 
             grape.dopPowPlot(dirname + '/' + figname + str(count + 1), ylim=ylim, fSize=fSize)
             count += 1
+
+    def yearMedTrend(self, figname):
+        """
+        Plots both the daytime and nighttime medians of all of GrapeHandler's grapes across the year
+        DOES NOT ACCOUNT FOR MISSING DAYS OF THE YEAR (assumes continuous datastream)
+
+        :param figname: Filename of the produced plot image
+        :return: .png plot into local repository
+        """
+
+        self.dMeds = []
+        self.nMeds = []
+
+        startday = self.grapes[0].day
+        startmonth = self.grapes[0].month
+
+        skipcount = 0
+        if startmonth != 1:
+            dayadd = monthindex[startmonth-1]
+            for i in range(0, dayadd-1):
+                self.dMeds.append(0)
+                self.nMeds.append(0)
+                skipcount += 1
+        if startday != 1:
+            for i in range(0, startday-1):
+                self.dMeds.append(0)
+                self.nMeds.append(0)
+                skipcount += 1
+
+        grapeindex = 0
+        for i, ind in enumerate(monthindex):
+            while ((grapeindex + skipcount) < (ind + monthlen[i])) and (grapeindex < len(self.grapes)):
+                grape = self.grapes[grapeindex]
+                day = grape.day
+                month = grape.month
+
+                valid = (grape.beacon == 'WWV10') and ((grape.dayMed is not None) and (grape.nightMed is not None)) \
+                    and (abs(grape.dayMed) < 100 and abs(grape.nightMed) < 100)
+                rightday = (day == (grapeindex + skipcount - ind + 1)) and (monthindex[month - 1] == ind)
+
+                skip = True
+                if rightday:
+                    if valid:
+                        self.dMeds.append(grape.dayMed)
+                        self.nMeds.append(grape.nightMed)
+                    else:
+                        self.dMeds.append(0)
+                        self.nMeds.append(0)
+                    grapeindex += 1
+                    skip = False
+
+                if skip:
+                    self.dMeds.append(0)
+                    self.nMeds.append(0)
+                    skipcount += 1
+
+        for i in range(len(self.dMeds), 365):
+            self.dMeds.append(0)
+            self.nMeds.append(0)
+
+        xrange = np.arange(0, 365)
+
+        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        plt.plot(xrange, self.dMeds, linewidth=2, color='r')
+        plt.plot(xrange, self.nMeds, linewidth=2, color='b')
+
+        for m in monthindex:
+            plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+
+        plt.xlabel('Month', fontsize=22)
+        plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
+        plt.xticks(monthindex, months)
+        plt.tick_params(axis='x', labelsize=20)
+        plt.tick_params(axis='y', labelsize=20)
+        plt.grid(axis='x', alpha=0.3)
+        plt.grid(axis='y', alpha=1)
+        plt.legend(["Sun Up Medians",
+                    "Sun Down Medians"], fontsize=22)
+
+        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
+                  fontsize=22)
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+
+        plt.show()
+        plt.close()
+
+    # same thing as yearMedTrend, but plot IQRs
+    def yearSpreadTrend(self, figname):
+        """
+        Plots the daily medians of all of GrapeHandler's grapes across the year
+
+        :param figname: Filename of the produced plot image
+        :return: .png plot into local repository
+        """
+
+        for grape in self.grapes:
+            if grape.beacon == 'WWV10':
+                if abs(grape.dayMed) < 100 and abs(grape.nightMed) < 100:
+                    self.dMeds.append(grape.dayMed)
+                    self.nMeds.append(grape.nightMed)
+                else:
+                    self.dMeds.append(0)
+                    self.nMeds.append(0)
+            else:
+                self.dMeds.append(0)
+                self.nMeds.append(0)
+
+        xrange = np.arange(0, len(self.grapes))
+
+        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        plt.plot(xrange, self.dMeds, linewidth=2, color='r')
+        plt.plot(xrange, self.nMeds, linewidth=2, color='b')
+
+        for m in monthindex:
+            plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+
+        plt.xlabel('Month', fontsize=22)
+        plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
+        # plt.ylim([-1.5, 1.5])
+        plt.xticks(monthindex, months)
+        plt.tick_params(axis='x', labelsize=20)
+        plt.tick_params(axis='y', labelsize=20)
+        plt.grid(axis='x', alpha=0.3)
+        plt.grid(axis='y', alpha=1)
+        plt.legend(["Sun Up Medians",
+                    "Sun Down Medians"], fontsize=22)
+
+        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
+                  fontsize=22)
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+
+        # print(str(max(self.dMeds)))
+        # print(str(max(self.nMeds)))
+        # print()
+        # print(str(min(self.dMeds)))
+        # print(str(min(self.nMeds)))
+
+        plt.show()
+        plt.close()
+
+    def yearDopPlot(self, figname, fSize=22):
+        pass
 
 # Global Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -6,12 +6,20 @@ mID = (str(i) for i in range(1, 13))
 monthDict = dict(zip(months, mID))
 data_dir = 'newark_data/'
 beacon = 'wwv'
-year = '2023'
+year = '2022'
 dest_dir = 'NJ_spreads/spreads_' + year
 
-# ylim = [0, 0.035]
-# ylim = [-0.020, 0.020]
-ylim=None
+ylim = None
+
+folders = []
+for m in months:
+    folders.append(data_dir + beacon + '_' + m + '_' + year)    # call with beacon for Newark filenames
+    # folders.append(data_dir + m + '_' + year)
+
+# folders.append(data_dir + 'jan' + '_' + year)
+
+gh = grape.GrapeHandler(folders, filt=False, comb=False, med=True, tShift=False)
+gh.yearMedTrend('test')
 
 # gh = grape.GrapeHandler(['CO_data/may_2021'], tShift=True)
 # gh.tileTrend('test', ylim=ylim)
@@ -22,11 +30,11 @@ ylim=None
 #     if gh.valid:
 #         gh.tileTrend(dest_dir + '/' + monthDict[m] + '_tileTrend_' + year, ylim=ylim)
 
-for m in months:
-    gh = grape.GrapeHandler([data_dir + beacon + '_' + m + '_' + year])
-    # gh = grape.GrapeHandler([data_dir + m + '_' + year])
-    if gh.valid:
-        gh.spreadTrend(dest_dir + '/' + monthDict[m] + '_IQR_' + year, ylim=ylim)
+# for m in months:
+#     gh = grape.GrapeHandler([data_dir + beacon + '_' + m + '_' + year])
+#     # gh = grape.GrapeHandler([data_dir + m + '_' + year])
+#     if gh.valid:
+#         gh.spreadTrend(dest_dir + '/' + monthDict[m] + '_IQR_' + year, ylim=ylim)
 
 # yr = '22'
 # if not os.path.exists('cleveland_doppow_unf'+yr):
