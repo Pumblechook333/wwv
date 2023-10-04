@@ -1409,7 +1409,6 @@ class GrapeHandler:
     def yearMedTrend(self, figname):
         """
         Plots both the daytime and nighttime medians of all of GrapeHandler's grapes across the year
-        DOES NOT ACCOUNT FOR MISSING DAYS OF THE YEAR (assumes continuous datastream)
 
         :param figname: Filename of the produced plot image
         :return: .png plot into local repository
