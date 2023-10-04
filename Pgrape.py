@@ -1195,7 +1195,7 @@ class GrapeHandler:
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
 
-        plt.title('WWV 10 MHz Median Relative Plot \n'  # Title (top)
+        plt.title('WWV 10 MHz Median Relative Power Plot \n'  # Title (top)
                   + self.month,
                   # + '2022',
                   fontsize=fSize)

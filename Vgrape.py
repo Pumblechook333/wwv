@@ -247,7 +247,7 @@ class Grape:
 
     def dnMedian(self):
         """
-        Calculates the medians of the entire day's sunlight and sundown doppler shifts, seperately
+        Calculates the medians of the entire day's sunlight and sundown voltage peak, seperately
 
         :return: day and night medians to grape object
         """
@@ -388,7 +388,7 @@ class Grape:
                 vals = None
 
             if vals:
-                binlims = np.arange(0, 0.42, 0.02)  # Bin limits (start, stop+step, step)
+                binlims = np.arange(0, 0.156, 0.006)  # Bin limits (start, stop+step, step)
 
                 fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
@@ -399,10 +399,10 @@ class Grape:
                 ax1.grid(axis='x', alpha=1)
                 ax1.grid(axis='y', alpha=0.5)
                 ax1.tick_params(axis='x',
-                                labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.tick_params(axis='y', labelsize=fSize - 2)
-                pl.xlim([0, 0.40])  # Xaxis Range
-                pl.xticks(np.arange(0, 0.42, 0.02))  # Xaxis plot range (start, stop+step, step)
+                                labelsize=fSize/1.7)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.tick_params(axis='y', labelsize=fSize/1.7)
+                pl.xlim([0, 0.150])  # Xaxis Range
+                pl.xticks(np.arange(0, 0.156, 0.006))  # Xaxis plot range (start, stop+step, step)
 
 
                 plt.title('WWV 10 MHz Voltage Distribution Plot \n'  # Title (top)
@@ -481,15 +481,17 @@ class Grape:
 
                             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                             # Plot the subsections
-                            binlims = np.arange(0, 0.42, 0.02)  # Range (start, stop+step, step)
+                            binlims = np.arange(0, 0.156, 0.006)  # Range (start, stop+step, step)
 
                             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                             ax1 = fig.add_subplot(111)
                             ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
                             ax1.set_xlabel('Voltage, V')
                             ax1.set_ylabel('Counts, N', color='r')
-                            ax1.set_xlim([0, 0.40])  # Xaxis Range (start, stop)
-                            ax1.set_xticks(np.arange(0, 0.42, 0.02))
+                            ax1.set_xlim([0, 0.156])  # Xaxis Range (start, stop)
+                            ax1.set_xticks(np.arange(0, 0.156, 0.006))
+                            ax1.tick_params(axis='x', labelsize=fSize/1.7)
+                            ax1.tick_params(axis='y', labelsize=fSize/1.7)
 
                             plt.title('WWV 10 MHz Voltage Distribution Plot \n'
                                       'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
@@ -508,35 +510,99 @@ class Grape:
 
                         indexhr += 1
                 else:
-                    hrSel = sel[0]
-                    binSel = sel[1]
+                    if sel[0]=='all': #One bin for every hour
+                        count = 0
+                        binSel = sel[1]
+                        for i in range(0, 24):
+                            hrSel = i
+                            thisHour = hours[hrSel][binSel]
 
-                    hours = hours[hrSel][binSel]
+                            binlims = np.arange(0, 0.156, 0.006)
+                            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
-                    binlims = np.arange(0, 0.42, 0.02)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                    fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                            fSize = fSize
+                            ax1 = fig.add_subplot(111)
+                            ax1.hist(thisHour, color='r', edgecolor='k', bins=binlims)
+                            ax1.set_xlabel('Voltage, V', fontsize=fSize)
+                            ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
+                            ax1.set_xlim([0, 0.150])  # Doppler Shift Range
+                            ax1.set_xticks(np.arange(0, 0.156, 0.006))
+                            ax1.tick_params(axis='x', labelsize=fSize/1.7)
+                            ax1.tick_params(axis='y', labelsize=fSize/1.7)
 
-                    fSize = fSize
-                    ax1 = fig.add_subplot(111)
-                    ax1.hist(hours, color='r', edgecolor='k', bins=binlims)
-                    ax1.set_xlabel('Voltage, V', fontsize=fSize)
-                    ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
-                    ax1.set_xlim([0, 0.40])  # Doppler Shift Range
-                    ax1.set_xticks(np.arange(0, 0.42, 0.02))
-                    ax1.tick_params(axis='x',
-                                    labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                    # ax1.set_xticks(binlims[::2])
-                    ax1.tick_params(axis='y', labelsize=fSize - 2)
+                            plt.title('WWV 10 MHz Voltage Distribution Plot \n'
+                                      'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
+                                      # 'Node: N0000020    Gridsquare: FN20vr \n'
+                                      # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                      + self.date + ' UTC',
+                                      fontsize=fSize)
 
-                    plt.title('WWV 10 MHz Voltage Distribution Plot \n'
-                              'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
-                              # 'Node: N0000020    Gridsquare: FN20vr \n'
-                              # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                              + self.date + ' UTC',
-                              fontsize=fSize)
+                            plt.savefig(str(figname) + '_' + str(count) + '.png', dpi=250,
+                                        orientation='landscape')
 
-                    plt.savefig(str(figname) + '.png', dpi=250,
-                                orientation='landscape')
+                            count += 1
+
+                    elif sel[1]=='all': #All bins in one hour
+                        count = 0
+                        hrSel = sel[0]
+                        bins = int(60/minBinLen)
+                        for i in range(0, bins):
+                            binSel = i
+                            thisHour = hours[hrSel][binSel]
+
+                            binlims = np.arange(0, 0.156, 0.006)
+                            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+                            fSize = fSize
+                            ax1 = fig.add_subplot(111)
+                            ax1.hist(thisHour, color='r', edgecolor='k', bins=binlims)
+                            ax1.set_xlabel('Voltage, V', fontsize=fSize)
+                            ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
+                            ax1.set_xlim([0, 0.150])  # Doppler Shift Range
+                            ax1.set_xticks(np.arange(0, 0.156, 0.006))
+                            ax1.tick_params(axis='x', labelsize=fSize / 1.7)
+                            ax1.tick_params(axis='y', labelsize=fSize / 1.7)
+
+                            plt.title('WWV 10 MHz Voltage Distribution Plot \n'
+                                      'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
+                                      # 'Node: N0000020    Gridsquare: FN20vr \n'
+                                      # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                      + self.date + ' UTC',
+                                      fontsize=fSize)
+
+                            plt.savefig(str(figname) + '_' + str(count) + '.png', dpi=250,
+                                        orientation='landscape')
+
+                            count += 1
+
+                    else:
+                        hrSel = sel[0]
+                        binSel = sel[1]
+
+                        hours = hours[hrSel][binSel]
+
+                        binlims = np.arange(0, 0.156, 0.006)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+                        fSize = fSize
+                        ax1 = fig.add_subplot(111)
+                        ax1.hist(hours, color='r', edgecolor='k', bins=binlims)
+                        ax1.set_xlabel('Voltage, V', fontsize=fSize)
+                        ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
+                        ax1.set_xlim([0, 0.150])  # Voltage peak Range
+                        ax1.set_xticks(np.arange(0, 0.156, 0.006))
+                        ax1.tick_params(axis='x', labelsize=fSize/1.7)
+                        ax1.tick_params(axis='y', labelsize=fSize/1.7)
+
+                        plt.title('WWV 10 MHz Voltage Distribution Plot \n'
+                                  'Hour: ' + str(hrSel) + ' || 5-min bin: ' + str(binSel) + ' \n'  # Title (top)
+                                  # 'Node: N0000020    Gridsquare: FN20vr \n'
+                                  # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                                  + self.date + ' UTC',
+                                  fontsize=fSize)
+
+                        plt.savefig(str(figname) + '.png', dpi=250,
+                                    orientation='landscape')
 
             else:
                 print("Please provide a valid valname!")
@@ -585,7 +651,7 @@ class Grape:
                 vals = None
 
             if vals:
-                binlims = np.arange(0, 0.42, 0.02)  # 0-0.40 by 0.02
+                binlims = np.arange(0, 0.156, 0.006)  # 0-0.40 by 0.02
                 pl.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
                 f = Fitter(vals, bins=binlims, distributions='common')
@@ -597,15 +663,14 @@ class Grape:
                 fSize = 22
                 pl.xlabel('Voltage, V', fontsize=fSize)
                 pl.ylabel('Normalized Counts', fontsize=fSize)
-                pl.xlim([0, 0.40])  # X-axis Range
-                pl.xticks(np.arange(0, 0.42, 0.02))
+                pl.xlim([0, 0.150])  # X-axis Range
+                pl.xticks(np.arange(0, 0.156, 0.006))
 
                 pl.legend(fontsize=fSize)
                 pl.grid(axis='x', alpha=1)
                 pl.grid(axis='y', alpha=0.5)
-                pl.tick_params(axis='x',
-                               labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                pl.tick_params(axis='y', labelsize=fSize - 2)
+                pl.tick_params(axis='x', labelsize=fSize/1.7)
+                pl.tick_params(axis='y', labelsize=fSize/1.7)
 
 
                 pl.title('Fitted Voltage Distribution \n'
@@ -705,8 +770,8 @@ class Grape:
                             pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
                             pl.xlim([0, 0.150])  # Voltage Range
-                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.4)
-                            pl.yticks(fontsize=fSize / 1.4)
+                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.7)
+                            pl.yticks(fontsize=fSize / 1.7)
 
                             pl.legend(fontsize=fSize)
 
@@ -750,8 +815,8 @@ class Grape:
                             pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
                             pl.xlim([0, 0.150])  # Doppler Shift Range
-                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.4)
-                            pl.yticks(fontsize=fSize / 1.4)
+                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.7)
+                            pl.yticks(fontsize=fSize / 1.7)
 
                             pl.legend(fontsize=fSize)
 
@@ -794,8 +859,8 @@ class Grape:
                             pl.xlabel('Voltage, V', fontsize=fSize)
                             pl.ylabel('Normalized Counts', fontsize=fSize)
                             pl.xlim([0, 0.150])  # Doppler Shift Range
-                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.4)
-                            pl.yticks(fontsize=fSize / 1.4)
+                            pl.xticks(np.arange(0, 0.156, 0.006), fontsize=fSize / 1.7)
+                            pl.yticks(fontsize=fSize / 1.7)
 
                             pl.legend(fontsize=fSize)
 
@@ -921,7 +986,7 @@ class Grape:
                         # print('Resolving subrange: ' + str(index) + ' ('
                         #       + str(floor((index / len(hour)) * 100)) + '% complete)')
 
-                        binlims = np.arange(0, 0.42, 0.02)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                        binlims = np.arange(0, 0.156, 0.006)
 
                         f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                         f.fit()
@@ -1075,17 +1140,17 @@ class GrapeHandler:
         for i in self.valscomb:
             valscombline += i
 
-        binlims = np.arrange(0, 0.156, 0.006)  # 10mV bins(0 to 150mV)
+        binlims = np.arange(0, 0.156, 0.006)  # 6mV bins(0 to 150mV)
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
         ax1.hist(valscombline, color='r', edgecolor='k', bins=binlims)
-        ax1.set_xlabel('Doppler Shift, Hz')
+        ax1.set_xlabel('Voltage Peak, V')
         ax1.set_ylabel('Counts, N', color='r')
-        ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-        ax1.set_xticks(binlims[::2])
+        ax1.set_xlim([0, 0.150])
+        ax1.set_xticks(np.arange(0, 0.156, 0.006))
 
-        plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'  # Title (top)
+        plt.title('WWV 10 MHz Voltage Peak Distribution Plot \n'  # Title (top)
                   'Node: N0000020    Gridsquare: FN20vr \n'
                   'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                   + self.month + ' UTC',
@@ -1143,17 +1208,17 @@ class GrapeHandler:
 
                 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
                 # Plot the subsections
-                binlims = [i / 10 for i in range(-25, 26, 1)]  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                binlims = np.arange(0, 0.156, 0.006)
 
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
                 ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
-                ax1.set_xlabel('Doppler Shift, Hz')
+                ax1.set_xlabel('Voltage, V')
                 ax1.set_ylabel('Counts, N', color='r')
-                ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.set_xticks(binlims[::2])
+                ax1.set_xlim([0, 0.156])
+                ax1.set_xticks(np.arange(0, 0.156, 0.006))
 
-                plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
+                plt.title('WWV 10 MHz Voltage Distribution Plot \n'
                           'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
                                                                                      'Node: N0000020    Gridsquare: FN20vr \n'
                                                                                      'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
@@ -1225,8 +1290,7 @@ class GrapeHandler:
             plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
 
         plt.xlabel('Month', fontsize=22)
-        plt.ylabel('Median Doppler Shift, Hz', fontsize=22)
-        # plt.ylim([-1.5, 1.5])
+        plt.ylabel('Median Voltage Peak, V', fontsize=22)
         plt.xticks(monthindex, months)
         plt.tick_params(axis='x', labelsize=20)
         plt.tick_params(axis='y', labelsize=20)
@@ -1235,15 +1299,9 @@ class GrapeHandler:
         plt.legend(["Sun Up Medians",
                     "Sun Down Medians"], fontsize=22)
 
-        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
+        plt.title('WWV 10 MHz Voltage Peak Median Trend \n',  # Title (top)
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
-
-        # print(str(max(self.dMeds)))
-        # print(str(max(self.nMeds)))
-        # print()
-        # print(str(min(self.dMeds)))
-        # print(str(min(self.nMeds)))
 
         plt.show()
         plt.close()
@@ -1270,7 +1328,7 @@ class GrapeHandler:
             index += secrange
 
         if ylim is None:
-            ylim = [-1, 1]
+            ylim = [0, 0.150]
 
         fSize = fSize
 
@@ -1284,7 +1342,7 @@ class GrapeHandler:
         self.grapes[0].sunPosOver(fSize)
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
-        ax1.set_ylabel('Median Doppler shift, Hz', fontsize=fSize)
+        ax1.set_ylabel('Median Voltage Peak, V', fontsize=fSize)
         ax1.set_xlim(0, 24)  # UTC day
         ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
         ax1.set_xticks(range(0, 25)[::2])
@@ -1293,7 +1351,7 @@ class GrapeHandler:
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
 
-        plt.title('WWV 10 MHz Median Doppler Shift Plot \n'  # Title (top)
+        plt.title('WWV 10 MHz Median Voltage Peak Plot \n'  # Title (top)
                   + self.month,
                   # + '2022',
                   fontsize=fSize)

@@ -3,7 +3,7 @@ import grape
 months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec']
 data_dir = 'wwv_data/'
 
-gh = grape.GrapeHandler([(data_dir + 'wwv_' + month + '_2022') for month in months])
+(gh = grape.GrapeHandler([(data_dir + 'wwv_' + month + '_2022') for month in months]))
 gh.medTrend('medTrend2022')
 
 # for m in months:
