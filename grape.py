@@ -998,7 +998,7 @@ class GrapeHandler:
 
     # Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def __init__(self, dirnames, filt=False, comb=True, med=False, tShift=True):
+    def __init__(self, dirnames, filt=False, comb=True, med=False, tShift=True, n=1):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
@@ -1026,12 +1026,12 @@ class GrapeHandler:
                 break
 
         if self.valid:
-            self.load(dirnames, filt, comb, med, tShift)
+            self.load(dirnames, filt, comb, med, tShift, n)
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
                   'Please try again. \n')
 
-    def load(self, dirnames, filt, comb, med, tShift):
+    def load(self, dirnames, filt, comb, med, tShift, n):
         """
         Script to load selected grape data into GrapeHandler object
 
@@ -1054,7 +1054,7 @@ class GrapeHandler:
         # filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
         for filename in filenames:
-            g = Grape(filename, filt=filt, med=med)
+            g = Grape(filename, filt=filt, med=med, n=n)
             if g.loaded:
                 self.grapes.append(g)
 
@@ -1546,7 +1546,102 @@ class GrapeHandler:
         plt.close()
 
     def yearDopPlot(self, figname, fSize=22):
-        pass
+        """
+        Plots vertical gradients representative of doppler shifts per day across the year
+
+        :param figname: Filename of the produced plot image
+        :return: .png plot into local repository
+        """
+
+        year_data = []
+        year_times = []
+        null_day = [0 for i in range(0, 86400)]
+
+        startday = self.grapes[0].day
+        startmonth = self.grapes[0].month
+        startyear = self.grapes[0].year
+        cityState = self.grapes[0].cityState
+
+        skipcount = 0
+        if startmonth != 1:
+            dayadd = monthindex[startmonth - 1]
+            for i in range(0, dayadd - 1):
+                year_data.append(null_day)
+                year_times.append(null_day)
+                skipcount += 1
+        if startday != 1:
+            for i in range(0, startday - 1):
+                year_data.append(null_day)
+                year_times.append(null_day)
+                skipcount += 1
+
+        grapeindex = 0
+        for i, ind in enumerate(monthindex):
+            while ((grapeindex + skipcount) < (ind + monthlen[i])) and (grapeindex < len(self.grapes)):
+                grape = self.grapes[grapeindex]
+                day = grape.day
+                month = grape.month
+
+                valid = (grape.beacon == 'WWV10')
+                rightday = (day == (grapeindex + skipcount - ind + 1)) and (monthindex[month - 1] == ind)
+
+                skip = True
+                if rightday:
+                    if valid:
+                        year_data.append(self.valscomb[grapeindex])
+                        year_times.append(self.timecomb[grapeindex])
+                    else:
+                        year_data.append(null_day)
+                        year_times.append(null_day)
+                    grapeindex += 1
+                    skip = False
+
+                if skip:
+                    year_data.append(null_day)
+                    year_times.append(null_day)
+                    skipcount += 1
+
+        for i in range(len(self.dMeds), 365):
+            year_data.append(null_day)
+            year_times.append(null_day)
+
+        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+        scatter = None
+
+        for i in range(0, 365):
+            if year_data[i] != null_day:
+                xrange = [i for j in range(0, len(year_data[i]))]
+                print('Plotting day %i / 365' % i)
+                scatter = plt.scatter(xrange, year_times[i], c=year_data[i], cmap='seismic')
+
+        # for m in monthindex:
+        #     plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+
+        plt.xlabel('Month', fontsize=fSize)
+        plt.ylabel('Time, Hr', fontsize=fSize)
+        plt.xticks(monthindex, months)
+        plt.yticks([i for i in range(0, 25)][::2])
+        plt.xlim(0, 365)
+        plt.ylim(0, 24)
+        plt.tick_params(axis='x', labelsize=fSize-2)
+        plt.tick_params(axis='y', labelsize=fSize-2)
+        plt.grid(axis='x', alpha=0.3)
+        plt.grid(axis='y', alpha=1)
+
+        cbar = fig.colorbar(scatter, extend='both')
+        cbar.minorticks_on()
+        cbar.ax.tick_params(labelsize=fSize-2)
+        cbar.ax.get_yaxis().labelpad = fSize
+        cbar.ax.set_ylabel('Doppler Shift (Hz)', fontsize=fSize, rotation=270)
+
+        plt.title('%i WWV 10 MHz Doppler Shift Trend for %s' % (startyear, cityState),  # Title (top)
+                  fontsize=fSize)
+        plt.savefig('%s.png' % figname, dpi=250, orientation='landscape')
+
+        # plt.show()
+        # plt.close()
+
 
 # Global Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
