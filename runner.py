@@ -3,28 +3,18 @@ import grape
 months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
 mID = (str(i) for i in range(1, 13))
 monthDict = dict(zip(months, mID))
-data_dir = 'OH_data/'
+state = 'NJ'
+data_dir = '%s_data/' % state
 beacon = 'wwv'
-year = '2023'
-dest_dir = 'NJ_spreads/spreads_' + year
+year = '2022'
+dest_dir = '%s_spreads/spreads_%s' % (state, year)
+test = ['NJ_data/testing']
 
-ylim = None
+# grape.gen_yearDopPlot(state='NJ', year='2022', n=60*5, monthRange=None)
 
-folders = []
-for m in months:
-    # folders.append(data_dir + beacon + '_' + m + '_' + year)    # call with beacon for Newark filenames
-    folders.append(data_dir + m + '_' + year)
+gh = grape.GrapeHandler(['ann_ecl_23'], filt=True, n=1)
+gh.dopPlotOver('test', ylim=[-1.5, 2])
 
-# folders.append(data_dir + 'jan' + '_' + year)
-
-test = ['newark_data/testing']
-
-gh = grape.GrapeHandler(folders[0:6], filt=False, comb=True, med=False, tShift=False, n=5)
-gh.yearDopPlot('yearDopShift_OH_%s' % year)
-# gh.yearMedTrend('test')
-
-# gh = grape.GrapeHandler(['CO_data/may_2021'], tShift=True)
-# gh.tileTrend('test', ylim=ylim)
 
 # for m in months:
 #     # gh = grape.GrapeHandler([data_dir + beacon + '_' + m + '_' + year])

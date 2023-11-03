@@ -16,6 +16,7 @@
 # Imports ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 import matplotlib.pyplot as plt
+from matplotlib import colors, cm
 import pylab as pl
 import numpy as np
 from math import floor, ceil
@@ -239,7 +240,18 @@ class Grape:
         :return: time, freq and Vdb ranges
         """
         if self.converted:
-            return np.array([self.t_range, self.f_range, self.Vdb_range])
+            return np.array([self.t_range, self.freq_filt, self.Vdb_range])
+        else:
+            return np.array([None, None, None])
+
+    def getFiltTFPr(self):
+        """
+        Getter for Grape object's converted and filtereed time, frequency and relative power ranges for use in plotting
+
+        :return: time, freq and Vdb ranges
+        """
+        if self.converted and self.filtered:
+            return np.array([self.t_range, self.f_range_filt, self.Vdb_range_filt])
         else:
             return np.array([None, None, None])
 
@@ -280,17 +292,10 @@ class Grape:
             self.f_range = self.freq - fdel
             self.Vdb_range = 10 * np.log10(self.Vpk ** 2)
 
-            # self.t_range = [(t / timediv) for t in self.time]  # Time range (Hours)
-            # self.f_range = [(f - fdel) for f in self.freq]  # Doppler shifts (del from 10GHz)
-            # self.Vdb_range = [10 * np.log10(v ** 2) for v in
-            #                   self.Vpk]  # Relative power (Power is proportional to V^2; dB)
             if self.filtered:
                 self.f_range_filt = self.freq_filt - fdel
                 self.Vdb_range_filt = 10 * np.log10(self.Vpk_filt ** 2)
 
-                # self.f_range_filt = [(f - fdel) for f in self.freq_filt]  # Doppler shifts (del from 10GHz)
-                # self.Vdb_range_filt = [10 * np.log10(v ** 2) for v in
-                #                        self.Vpk_filt]  # Relative power (Power is proportional to V^2; dB)
             self.converted = True
         else:
             print('Time, frequency and Vpk not loaded!')
@@ -322,7 +327,6 @@ class Grape:
         Bsr = conv_time(self.Bsuntimes['sunrise'])
         Bss = conv_time(self.Bsuntimes['sunset'])
 
-        # Note - improve with numpy arrays
         srIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bsr))
         ssIndex = min(range(len(self.t_range)), key=lambda i: abs(self.t_range[i] - Bss))
 
@@ -491,8 +495,9 @@ class Grape:
                 fSize = 22
                 fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
-                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if (binlims is not None) else ax1.hist(vals, color='r',
-                                                                                                edgecolor='k')
+                ax1.hist(vals, color='r', edgecolor='k', bins=binlims) if (binlims is not None) else ax1.hist(vals,
+                                                                                                              color='r',
+                                                                                                              edgecolor='k')
                 ax1.set_xlabel(label, fontsize=fSize)
                 ax1.set_ylabel('Counts, N', color='r', fontsize=fSize)
                 ax1.grid(axis='x', alpha=1)
@@ -1006,6 +1011,7 @@ class GrapeHandler:
         :param filt: boolean value dictating whether or not each grape is filtered upon loading (default False)
         :param comb: boolean indicating if the data should be combined for certain GrapeHandler functionality
         :param tShift: boolean indicating if the data should be time shifted to align sunrises
+        :param n: subsampling term which allows every nth datapoint to be loaded into each grape
         """
         self.grapes = []
         self.valscomb = []
@@ -1040,6 +1046,7 @@ class GrapeHandler:
         :param comb: boolean indicating if the data should be combined for certain GrapeHandler functionality
         :param med: boolean indicating if the day / night medians should be calculated for each Grape
         :param tShift: boolean indicating if the data should be time shifted to align sunrises
+        :param n: subsampling term which allows every nth datapoint to be loaded into each grape
         :return:
         """
 
@@ -1049,9 +1056,6 @@ class GrapeHandler:
             for filename in os.scandir(directory):
                 if filename.is_file():
                     filenames.append('./' + directory + '/' + filename.name)
-
-        # Unneeded sorting step (only feed sorted files)
-        # filenames.sort(key=lambda f: int(sub('\D', '', f)))
 
         for filename in filenames:
             g = Grape(filename, filt=filt, med=med, n=n)
@@ -1065,7 +1069,7 @@ class GrapeHandler:
                 firstSunrise = conv_time(self.grapes[0].Bsuntimes['sunrise'], 's')
 
                 for gid, grape in enumerate(self.grapes):
-                    vals = grape.getTFPr()  # get time, freq and power from grape
+                    vals = grape.getFiltTFPr() if (filt is True) else grape.getTFPr()  # get time, freq and power from grape
                     t = np.array(vals[0])
                     f = np.array(vals[1])
 
@@ -1193,8 +1197,8 @@ class GrapeHandler:
 
                 plt.title('WWV 10 MHz Doppler Shift Distribution Plot \n'
                           'Hour: ' + str(indexhr) + ' || 5-min bin: ' + str(index) + ' \n'  # Title (top)
-                                                                                     # 'Node: N0000020    Gridsquare: FN20vr \n'
-                                                                                     # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                          # 'Node: N0000020    Gridsquare: FN20vr \n'
+                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                           + self.month + ' UTC',
                           fontsize='10')
 
@@ -1295,7 +1299,7 @@ class GrapeHandler:
 
     def spreadTrend(self, figname, minBinLen=5, fSize=22, ylim=(0, 1.2)):
         """
-        Plots the difference between the 25th and 75th percentiles of the data (doppler shift) over time
+        Plots the daily variance in doppler shift Interquartile range for month-long segments of binned data
 
         :param figname: string value for the beginning of each image filename
         :param minBinLen: an integer value for the length of every time bin (minutes)
@@ -1305,8 +1309,8 @@ class GrapeHandler:
         secrange, minrange = mblHandle(minBinLen)
 
         # Gets the months and years for each grape
-        monthMark = [0]*len(self.grapes)
-        yearMark = [0]*len(self.grapes)
+        monthMark = [0] * len(self.grapes)
+        yearMark = [0] * len(self.grapes)
         for i, grape in enumerate(self.grapes):
             monthMark[i] = grape.month
             yearMark[i] = grape.year
@@ -1349,7 +1353,7 @@ class GrapeHandler:
                     q.append(qt[i])
                 index += secrange
 
-            monthDiff.append([q75[i]-q25[i] for i in np.arange(0, len(q75))])
+            monthDiff.append([q75[i] - q25[i] for i in np.arange(0, len(q75))])
 
         # takes the t_range from the grape with the most data (longest day)
         t_range = self.grapes[self.bestgid].t_range
@@ -1422,13 +1426,13 @@ class GrapeHandler:
 
         skipcount = 0
         if startmonth != 1:
-            dayadd = monthindex[startmonth-1]
-            for i in range(0, dayadd-1):
+            dayadd = monthindex[startmonth - 1]
+            for i in range(0, dayadd - 1):
                 self.dMeds.append(0)
                 self.nMeds.append(0)
                 skipcount += 1
         if startday != 1:
-            for i in range(0, startday-1):
+            for i in range(0, startday - 1):
                 self.dMeds.append(0)
                 self.nMeds.append(0)
                 skipcount += 1
@@ -1441,7 +1445,7 @@ class GrapeHandler:
                 month = grape.month
 
                 valid = (grape.beacon == 'WWV10') and ((grape.dayMed is not None) and (grape.nightMed is not None)) \
-                    and (abs(grape.dayMed) < 100 and abs(grape.nightMed) < 100)
+                        and (abs(grape.dayMed) < 100 and abs(grape.nightMed) < 100)
                 rightday = (day == (grapeindex + skipcount - ind + 1)) and (monthindex[month - 1] == ind)
 
                 skip = True
@@ -1490,10 +1494,9 @@ class GrapeHandler:
         plt.show()
         plt.close()
 
-    # same thing as yearMedTrend, but plot IQRs
     def yearSpreadTrend(self, figname):
         """
-        Plots the daily medians of all of GrapeHandler's grapes across the year
+        Plots the daily interquartile range of all of GrapeHandler's grapes across the year
 
         :param figname: Filename of the produced plot image
         :return: .png plot into local repository
@@ -1534,15 +1537,6 @@ class GrapeHandler:
         plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
-
-        # print(str(max(self.dMeds)))
-        # print(str(max(self.nMeds)))
-        # print()
-        # print(str(min(self.dMeds)))
-        # print(str(min(self.nMeds)))
-
-        plt.show()
-        plt.close()
 
     def yearDopPlot(self, figname, fSize=22):
         """
@@ -1612,10 +1606,8 @@ class GrapeHandler:
             if year_data[i] != null_day:
                 xrange = [i for j in range(0, len(year_data[i]))]
                 print('Plotting day %i / 365' % i)
-                scatter = plt.scatter(xrange, year_times[i], c=year_data[i], cmap='seismic')
-
-        # for m in monthindex:
-        #     plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+                scatter = plt.scatter(xrange, year_times[i], c=year_data[i], norm=colors.CenteredNorm(),
+                                      cmap='seismic')
 
         plt.xlabel('Month', fontsize=fSize)
         plt.ylabel('Time, Hr', fontsize=fSize)
@@ -1623,14 +1615,14 @@ class GrapeHandler:
         plt.yticks([i for i in range(0, 25)][::2])
         plt.xlim(0, 365)
         plt.ylim(0, 24)
-        plt.tick_params(axis='x', labelsize=fSize-2)
-        plt.tick_params(axis='y', labelsize=fSize-2)
+        plt.tick_params(axis='x', labelsize=fSize - 2)
+        plt.tick_params(axis='y', labelsize=fSize - 2)
         plt.grid(axis='x', alpha=0.3)
         plt.grid(axis='y', alpha=1)
 
         cbar = fig.colorbar(scatter, extend='both')
         cbar.minorticks_on()
-        cbar.ax.tick_params(labelsize=fSize-2)
+        cbar.ax.tick_params(labelsize=fSize - 2)
         cbar.ax.get_yaxis().labelpad = fSize
         cbar.ax.set_ylabel('Doppler Shift (Hz)', fontsize=fSize, rotation=270)
 
@@ -1638,11 +1630,129 @@ class GrapeHandler:
                   fontsize=fSize)
         plt.savefig('%s.png' % figname, dpi=250, orientation='landscape')
 
-        # plt.show()
-        # plt.close()
+    def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None):
+
+        if ylim is None:
+            ylim = ydoplims(self.valscomb, 'f')
+
+        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+        self.grapes[0].sunPosOver(fSize)
+
+        for i in range(len(self.grapes)):
+            frange = self.valscomb[i]
+            trange = self.timecomb[i]
+
+            if i == len(self.grapes)-1:
+                plt.plot(trange, frange, 'r', linewidth=2)
+            else:
+                plt.plot(trange, frange, 'k', linewidth=2, alpha=i/len(self.grapes))
+
+        plt.xlabel('UTC Hour', fontsize=fSize)
+        plt.ylabel(flabel, fontsize=fSize)
+        plt.xlim(0, 24)  # UTC day
+        plt.ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        plt.xticks(np.arange(0, 25, 2))
+        plt.tick_params(axis='x', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        plt.tick_params(axis='y', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        plt.grid(axis='x', alpha=1)
+        plt.grid(axis='y', alpha=0.5)
+
+        cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'))
+        cbar.minorticks_on()
+        cbar.ax.set_yticklabels(['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        cbar.ax.tick_params(labelsize=fSize - 2)
+        cbar.ax.get_yaxis().labelpad = fSize + 3
+        cbar.ax.set_ylabel('Date of Trace', fontsize=fSize, rotation=270)
+
+        plt.title('WWV 10 MHz Doppler Shift Plot Comparison \n'  # Title (top)
+                  + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+                  % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
+                    decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
+                    decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
+                  self.grapes[0].date + ' through ' + self.grapes[-1].date,
+                  fontsize=fSize)
+        plt.tight_layout()
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.close()
+
+
+# Shortcut Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60*5, monthRange=None):
+    """
+    Shortcut function to quickly generate yearDopPlot using GrapeHandler
+
+    :param figname: prefix of the figures to be produced
+    :param state: US State of the RX
+    :param year: Year of data collection
+    :param beacon: TX Beacon Name
+    :param n: Subsampling term
+    :param monthRange:  Range of months to search for (eg. [int, int], or [int, 'rest'] to go from first index to last
+                        available month)
+    :return:
+    """
+
+    months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
+    data_dir = '%s_data/' % state
+
+    folders = []
+    if monthRange:
+        if monthRange[1] == 'rest':
+            monthClip = months[monthRange[0]::]
+        else:
+            monthClip = months[monthRange[0]:monthRange[1]]
+        for m in monthClip:
+            folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
+                           ('%s_%s_%s' % (data_dir, m, year)))
+    else:
+        for m in months:
+            folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
+                           ('%s_%s_%s' % (data_dir, m, year)))
+
+    gh = GrapeHandler(folders, filt=False, comb=True, med=False, tShift=False, n=n)
+    gh.yearDopPlot('%s_%s_%s' % (figname, state, year))
 
 
 # Global Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+def ydoplims(yrange, valname, cutoff=3):
+
+    if isinstance(yrange[0], np.ndarray):
+        # truncates maximum and minimum values
+        bottom = round_down(yrange[0].min(), 1)
+        top = round_up(yrange[0].max(), 1)
+
+        for range in yrange:
+            thismin = round_down(range.min(), 1)
+            thismax = round_up(range.max(), 1)
+
+            if thismin < bottom:
+                bottom = thismin
+            if thismax > top:
+                top = thismax
+
+    else:
+        # truncates maximum and minimum values
+        bottom = round_down(yrange.min(), 1)
+        top = round_up(yrange.max(), 1)
+
+    # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
+    if valname in fnames:
+        if bottom > -2:
+            bottom = -1 if (bottom > -1) else (
+                -1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
+        else:
+            if bottom < -cutoff:
+                bottom = -cutoff
+        if top < 2:
+            top = 1 if (top < 1) else (1.2 if (top < 1.2) else (1.5 if (top < 1.5) else 2))
+        else:
+            if top > cutoff:
+                top = cutoff
+
+    return [bottom, top]
+
 
 def movie(dirname, gifname, fps=10):
     """
@@ -1754,8 +1864,21 @@ def conv_time(timestamp, unit='h'):
     if unit == 'h':
         convun = hr + mi / 60 + sec / 3600
     if unit == 'm':
-        convun = hr*60 + mi + sec/60
+        convun = hr * 60 + mi + sec / 60
     if unit == 's':
-        convun = hr*3600 + mi*60 + sec
+        convun = hr * 3600 + mi * 60 + sec
 
     return convun
+
+def decdeg2dms(dd):
+    mnt, sec = divmod(abs(dd)*3600, 60)
+    deg, mnt = divmod(mnt, 60)
+
+    mult = -1 if dd < 0 else 1
+    deg = round_down(mult*deg, 0)
+    mnt = round_down(mult*mnt, 0)
+    sec = round_down(mult*sec, 0)
+
+    coordString = ' %i°%i\'%i\"' % (deg, mnt, sec)
+
+    return coordString
