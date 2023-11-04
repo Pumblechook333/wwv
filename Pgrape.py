@@ -4,7 +4,7 @@
 
     @Author: Sabastian Carlos Fernandes & Tiago Trigo [New Jersey Institute of Technology]
     @Date: 11.1.2023
-    @Version: 1.0
+    @Version: 1.0(Power)
     @Credit:    Dr. Gareth Perry [New Jersey Institute of Technology],
                 John Gibbons [Case Western Reserve University],
                 Ham Radio Science Citizen Investigation (HamSCI)
@@ -556,7 +556,7 @@ class Grape:
                             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
                             ax1 = fig.add_subplot(111)
                             ax1.hist(srange, color='r', edgecolor='k', bins=binlims)
-                            ax1.set_xlabel(plabel)###################################################################
+                            ax1.set_xlabel(plabel)
                             ax1.set_ylabel('Counts, N', color='r')
                             ax1.set_xlim([-80, 0])  # Xaxis Range (start, stop)
                             ax1.set_xticks(np.arange(-80, 5, 5))
