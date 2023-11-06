@@ -10,6 +10,7 @@
                 Ham Radio Science Citizen Investigation (HamSCI)
 """
 import matplotlib.pyplot as plt
+from matplotlib import colors, cm
 import pylab as pl
 import numpy as np
 from math import floor, ceil
@@ -1026,28 +1027,28 @@ class GrapeHandler:
                 for gid, grape in enumerate(self.grapes):
                     vals = grape.getTFPr()  # get time, freq and power from grape
                     t = np.array(vals[0])
-                    f = np.array(vals[1])
+                    p = np.array(vals[2])
 
                     if tShift:
                         thisSunrise = conv_time(grape.Bsuntimes['sunrise'], 's')
                         sunDiff = int(thisSunrise - firstSunrise)
 
                         t = np.roll(t, sunDiff)
-                        f = np.roll(f, sunDiff)
+                        p = np.roll(p, sunDiff)
 
                         if sunDiff > 0:
                             t[0:sunDiff] = 0
-                            f[0:sunDiff] = 0
+                            p[0:sunDiff] = 0
                         if sunDiff < 0:
                             t[sunDiff::] = 0
-                            f[sunDiff::] = 0
+                            p[sunDiff::] = 0
 
                     # An array of arrays
                     self.timecomb.append(t)
-                    self.valscomb.append(f)
+                    self.valscomb.append(p)
 
-                    if len(f) > self.valslength:
-                        self.valslength = len(f)
+                    if len(p) > self.valslength:
+                        self.valslength = len(p)
                         self.bestgid = gid
 
                 print('GrapeHandler loaded with combvals \n')
@@ -1585,8 +1586,100 @@ class GrapeHandler:
         plt.show()
         plt.close()
 
+    def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None):
 
+        if ylim is None:
+            ylim = ydoplims(self.valscomb, 'db')
 
+        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+        self.grapes[0].sunPosOver(fSize)
+
+        for i in range(len(self.grapes)):
+            prange = self.valscomb[i]
+            trange = self.timecomb[i]
+
+            if i == len(self.grapes) - 1:
+                plt.plot(trange, prange, 'r', linewidth=2)
+            else:
+                plt.plot(trange, prange, 'k', linewidth=2, alpha=i / len(self.grapes))
+
+        plt.xlabel('UTC Hour', fontsize=fSize)
+        plt.ylabel(plabel, fontsize=fSize)
+        plt.xlim(0, 24)  # UTC day
+        plt.ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        plt.xticks(np.arange(0, 25, 2))
+        plt.tick_params(axis='x', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        plt.tick_params(axis='y', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        plt.grid(axis='x', alpha=1)
+        plt.grid(axis='y', alpha=0.5)
+
+        cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'))
+        cbar.minorticks_on()
+        cbar.ax.set_yticklabels(['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        cbar.ax.tick_params(labelsize=fSize - 2)
+        cbar.ax.get_yaxis().labelpad = fSize + 3
+        cbar.ax.set_ylabel('Date of Trace', fontsize=fSize, rotation=270)
+
+        plt.title('WWV 10 MHz Relative Power Plot Comparison \n'  # Title (top)
+                  + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+                  % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
+                     decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
+                     decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
+                  self.grapes[0].date + ' through ' + self.grapes[-1].date,
+                  fontsize=fSize)
+        plt.tight_layout()
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.close()
+
+def decdeg2dms(dd):
+    mnt, sec = divmod(abs(dd)*3600, 60)
+    deg, mnt = divmod(mnt, 60)
+
+    mult = -1 if dd < 0 else 1
+    deg = round_down(mult*deg, 0)
+    mnt = round_down(mult*mnt, 0)
+    sec = round_down(mult*sec, 0)
+
+    coordString = ' %i°%i\'%i\"' % (deg, mnt, sec)
+
+    return coordString
+def ydoplims(yrange, valname, cutoff=3):
+
+    if isinstance(yrange[0], np.ndarray):
+        # truncates maximum and minimum values
+        bottom = round_down(yrange[0].min(), 1)
+        top = round_up(yrange[0].max(), 1)
+
+        for range in yrange:
+            thismin = round_down(range.min(), 1)
+            thismax = round_up(range.max(), 1)
+
+            if thismin < bottom:
+                bottom = thismin
+            if thismax > top:
+                top = thismax
+
+    else:
+        # truncates maximum and minimum values
+        bottom = round_down(yrange.min(), 1)
+        top = round_up(yrange.max(), 1)
+
+    # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
+    if valname in fnames:
+        if bottom > -2:
+            bottom = -1 if (bottom > -1) else (
+                -1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
+        else:
+            if bottom < -cutoff:
+                bottom = -cutoff
+        if top < 2:
+            top = 1 if (top < 1) else (1.2 if (top < 1.2) else (1.5 if (top < 1.5) else 2))
+        else:
+            if top > cutoff:
+                top = cutoff
+
+    return [bottom, top]
 def movie(dirname, gifname, fps=10):
     """
     Combines the images in the provided directory into a gif of the specified framerate
