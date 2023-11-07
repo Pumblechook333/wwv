@@ -1068,7 +1068,7 @@ class GrapeHandler:
 
         valscombline = []
         for i in self.valscomb:
-            valscombline += i
+            valscombline = valscombline+i
 
         binlims = np.arange(-80, 5, 5)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
@@ -1589,7 +1589,7 @@ class GrapeHandler:
     def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None):
 
         if ylim is None:
-            ylim = ydoplims(self.valscomb, 'db')
+            ylim = ydoplims(self.valscomb, 'dB')
 
         plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
@@ -1628,7 +1628,7 @@ class GrapeHandler:
                      decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
                   self.grapes[0].date + ' through ' + self.grapes[-1].date,
                   fontsize=fSize)
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
 
