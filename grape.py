@@ -28,6 +28,9 @@ from fitter import Fitter
 from datetime import datetime
 import suncalc
 
+import pickle
+from tqdm import tqdm
+
 # Global Variables ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 fnames = ('d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency')
@@ -216,11 +219,13 @@ class Grape:
             if self.beacon == 'WWV10':
                 # Raise loaded flag
                 self.loaded = True
-                print("Grape " + self.date + " loaded! \n")
+                # print("Grape " + self.date + " loaded! \n")
             else:
-                print("Grape " + self.date + " not loaded (not WWV10) \n")
+                # print("Grape " + self.date + " not loaded (not WWV10) \n")
+                pass
         else:
-            print("Grape " + self.date + " not loaded (no data) \n")
+            # print("Grape " + self.date + " not loaded (no data) \n")
+            pass
 
     def getTFV(self):
         """
@@ -240,7 +245,7 @@ class Grape:
         :return: time, freq and Vdb ranges
         """
         if self.converted:
-            return np.array([self.t_range, self.freq_filt, self.Vdb_range])
+            return np.array([self.t_range, self.f_range, self.Vdb_range])
         else:
             return np.array([None, None, None])
 
@@ -1057,7 +1062,8 @@ class GrapeHandler:
                 if filename.is_file():
                     filenames.append('./' + directory + '/' + filename.name)
 
-        for filename in filenames:
+        print('\nLoading Grapes:\n')
+        for filename in tqdm(filenames):
             g = Grape(filename, filt=filt, med=med, n=n)
             if g.loaded:
                 self.grapes.append(g)
@@ -1548,7 +1554,7 @@ class GrapeHandler:
 
         year_data = []
         year_times = []
-        null_day = [0 for i in range(0, 86400)]
+        null_day = [0] * self.valslength
 
         startday = self.grapes[0].day
         startmonth = self.grapes[0].month
@@ -1600,12 +1606,30 @@ class GrapeHandler:
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
+        # flat_year_data = []
+        # for day in year_data:
+        #     for second in day:
+        #         flat_year_data.append(second)
+        #
+        # rolled_year = np.roll(flat_year_data, -1*60*60*6)
+        #
+        # # Code to re-partition year_data into daylong chunks
+        # new_year_data = year_data
+        # count = 0
+        # for day in new_year_data:
+        #     for i, second in enumerate(day):
+        #         day[i] = rolled_year[count]
+        #         count += 1
+        #
+        # year_data = new_year_data
+
         scatter = None
 
-        for i in range(0, 365):
-            if year_data[i] != null_day:
+        print('Begin Plotting')
+        for i in tqdm(range(0, 365)):
+            if np.any(year_data[i]):
                 xrange = [i for j in range(0, len(year_data[i]))]
-                print('Plotting day %i / 365' % i)
+                # print('Plotting day %i / 365' % i)
                 scatter = plt.scatter(xrange, year_times[i], c=year_data[i], norm=colors.CenteredNorm(),
                                       cmap='seismic')
 
@@ -1716,6 +1740,33 @@ def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv
 
 # Global Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
+def pickle_grape(gObj, filename=None):
+    if not filename:
+        if isinstance(gObj, Grape):
+            filename = 'g_%s_%s.pkl' % (gObj.cityState, gObj.date)
+        if isinstance(gObj, GrapeHandler):
+            filename = 'gh_%s_%s_%s.pkl' % (gObj.grapes[0].cityState[-2::], gObj.grapes[0].date, gObj.grapes[-1].date)
+
+    with open(filename, 'wb') as f:  # open a text file
+        gPickle = pickle.dump(gObj, f)  # serialize the grape object
+        f.close()
+
+    return gPickle
+
+
+def unpickle_grape(gPickleFname):
+    with open(gPickleFname, 'rb') as f:
+        gObj = pickle.load(f)  # deserialize using load()
+        f.close()
+
+    if isinstance(gObj, Grape):
+        print('Grape %s %s loaded!' % (gObj.cityState, gObj.date))
+    if isinstance(gObj, GrapeHandler):
+        print('Grape Handler %s %s through %s loaded!' % (gObj.grapes[0].cityState[-2::], gObj.grapes[0].date, gObj.grapes[-1].date))
+
+    return gObj
+
+
 def ydoplims(yrange, valname, cutoff=3):
 
     if isinstance(yrange[0], np.ndarray):
@@ -1764,6 +1815,7 @@ def movie(dirname, gifname, fps=10):
     :param fps: integer value for the produced gif's frames per second (default 10)
     :return: a gif of the combined files in the local repository
     """
+    gif = None
 
     if os.path.exists(dirname):
         # assign directory
@@ -1784,7 +1836,7 @@ def movie(dirname, gifname, fps=10):
 
         print('Frames processed')
 
-        imageio.mimsave('./' + gifname + '.gif',  # output gif
+        gif = imageio.mimsave('./' + gifname + '.gif',  # output gif
                         frames,  # array of input frames
                         fps=fps)  # optional: frames per second
 
@@ -1793,6 +1845,8 @@ def movie(dirname, gifname, fps=10):
     else:
         print('That directory does not exist on the local path! \n'
               'Please try again.')
+
+    return gif
 
 
 def mblHandle(minBinLen):

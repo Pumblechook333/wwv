@@ -10,9 +10,10 @@ year = '2022'
 dest_dir = '%s_spreads/spreads_%s' % (state, year)
 test = ['NJ_data/testing']
 
-# grape.gen_yearDopPlot(state='NJ', year='2022', n=60*5, monthRange=None)
+# grape.gen_yearDopPlot(state='NJ', year='2022', n=60*10, monthRange=None)
 
-gh = grape.GrapeHandler(['ann_ecl_23'], filt=True, n=1)
+# gh = grape.GrapeHandler(['ann_ecl_23'], filt=True, n=1)
+gh = grape.unpickle_grape('2023_ecl_gh.pkl')
 gh.dopPlotOver('test', ylim=[-1.5, 2])
 
 
