@@ -925,7 +925,7 @@ class Grape:
                                 labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
                 ax1.tick_params(axis='y', labelsize=fSize - 2)
 
-                rng = np.arrange(0, len(self.bestFits))
+                rng = np.arange(0, len(self.bestFits))
                 fitTimeRange = (rng/len(self.bestFits)) * 24
                 self.bestFits = [list(i.keys())[0] for i in self.bestFits]
 
@@ -1617,8 +1617,8 @@ class GrapeHandler:
         cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'))
         cbar.minorticks_on()
         cbar.ax.set_yticklabels(['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
-        cbar.ax.tick_params(labelsize=fSize - 2)
-        cbar.ax.get_yaxis().labelpad = fSize + 3
+        #cbar.ax.tick_params(labelsize= fSize - 2)
+        #cbar.ax.get_yaxis().labelpad = fSize + 2
         cbar.ax.set_ylabel('Date of Trace', fontsize=fSize, rotation=270)
 
         plt.title('WWV 10 MHz Relative Power Plot Comparison \n'  # Title (top)
