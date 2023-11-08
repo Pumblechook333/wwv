@@ -10,7 +10,8 @@
                 Ham Radio Science Citizen Investigation (HamSCI)
 """
 import matplotlib.pyplot as plt
-from matplotlib import colors, cm
+import matplotlib.cm as cm
+import matplotlib.colors as colors
 import pylab as pl
 import numpy as np
 from math import floor, ceil
@@ -21,6 +22,7 @@ from re import sub
 from fitter import Fitter
 from datetime import datetime
 import suncalc
+from tqdm import tqdm
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -231,6 +233,17 @@ class Grape:
         """
         if self.converted:
             return np.array([self.t_range, self.f_range, self.Vdb_range])
+        else:
+            return np.array([None, None, None])
+
+    def getFiltTFPr(self):
+        """
+        Getter for Grape object's converted and filtereed time, frequency and relative power ranges for use in plotting
+
+        :return: time, freq and Vdb ranges
+        """
+        if self.converted and self.filtered:
+            return np.array([self.t_range, self.f_range_filt, self.Vdb_range_filt])
         else:
             return np.array([None, None, None])
 
@@ -1010,10 +1023,8 @@ class GrapeHandler:
                 if filename.is_file():
                     filenames.append('./' + directory + '/' + filename.name)
 
-        # Unneeded sorting step (only feed sorted files)
-        # filenames.sort(key=lambda f: int(sub('\D', '', f)))
-
-        for filename in filenames:
+        print('Loading Grapes')
+        for filename in tqdm(filenames):
             g = Grape(filename, filt=filt, med=med, n=n)
             if g.loaded:
                 self.grapes.append(g)
@@ -1025,7 +1036,8 @@ class GrapeHandler:
                 firstSunrise = conv_time(self.grapes[0].Bsuntimes['sunrise'], 's')
 
                 for gid, grape in enumerate(self.grapes):
-                    vals = grape.getTFPr()  # get time, freq and power from grape
+                    vals = grape.getFiltTFPr() if (
+                                filt is True) else grape.getTFPr()  # get time, freq and power from grape
                     t = np.array(vals[0])
                     p = np.array(vals[2])
 
@@ -1591,7 +1603,7 @@ class GrapeHandler:
         if ylim is None:
             ylim = ydoplims(self.valscomb, 'dB')
 
-        plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        fig, ax = plt.subplots(figsize=(19, 10))  # Create a figure and axis objects
 
         self.grapes[0].sunPosOver(fSize)
 
@@ -1600,35 +1612,37 @@ class GrapeHandler:
             trange = self.timecomb[i]
 
             if i == len(self.grapes) - 1:
-                plt.plot(trange, prange, 'r', linewidth=2)
+                ax.plot(trange, prange, 'r', linewidth=2)
             else:
-                plt.plot(trange, prange, 'k', linewidth=2, alpha=i / len(self.grapes))
+                ax.plot(trange, prange, 'k', linewidth=2, alpha=i / len(self.grapes))
 
-        plt.xlabel('UTC Hour', fontsize=fSize)
-        plt.ylabel(plabel, fontsize=fSize)
-        plt.xlim(0, 24)  # UTC day
-        plt.ylim(ylim)  # -1 to 1 Hz for Doppler shift
-        plt.xticks(np.arange(0, 25, 2))
-        plt.tick_params(axis='x', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-        plt.tick_params(axis='y', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-        plt.grid(axis='x', alpha=1)
-        plt.grid(axis='y', alpha=0.5)
+        ax.set_xlabel('UTC Hour', fontsize=fSize)
+        ax.set_ylabel(plabel, fontsize=fSize)
+        ax.set_xlim(0, 24)  # UTC day
+        ax.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        ax.set_xticks(np.arange(0, 25, 2))
+        ax.tick_params(axis='x', labelsize=20)
+        ax.tick_params(axis='y', labelsize=20)
+        ax.grid(axis='x', alpha=1)
+        ax.grid(axis='y', alpha=0.5)
 
-        cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'))
+        cax = fig.add_axes([0.91, 0.1, 0.02, 0.8])  # Define position and size of the colorbar axis
+        norm = colors.Normalize(vmin=-80, vmax=0)
+        cbar = plt.colorbar(cm.ScalarMappable(norm=norm, cmap='Greys'), cax=cax)
         cbar.minorticks_on()
+        cbar.ax.set_yticks([-80, -70, -60, -50, -40, -30, -20, -10, 0])
         cbar.ax.set_yticklabels(['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
-        #cbar.ax.tick_params(labelsize= fSize - 2)
-        #cbar.ax.get_yaxis().labelpad = fSize + 2
-        cbar.ax.set_ylabel('Date of Trace', fontsize=fSize, rotation=270)
+        cbar.ax.set_ylabel('Date of Trace', fontsize=fSize, rotation=270, labelpad=25)
 
-        plt.title('WWV 10 MHz Relative Power Plot Comparison \n'  # Title (top)
-                  + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
-                  % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
-                     decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
-                     decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
-                  self.grapes[0].date + ' through ' + self.grapes[-1].date,
-                  fontsize=fSize)
-        #plt.tight_layout()
+        ax.set_title('WWV 10 MHz Relative Power Plot Comparison \n'  # Title (top)
+                     + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+                     % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
+                        decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
+                        decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
+                     self.grapes[0].date + ' through ' + self.grapes[-1].date,
+                     fontsize=fSize)
+
+        #plt.tight_layout()  # Adjust layout to prevent clipping of labels
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
 
