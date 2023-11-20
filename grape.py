@@ -79,6 +79,8 @@ class Grape:
         self.blat = None  # Coordinates of bounce location
         self.blon = None
 
+        self.t_offset = None     # time offset of midpoint from UTC
+
         self.ele = None
         self.cityState = None
         self.radID = None
@@ -184,6 +186,8 @@ class Grape:
 
         self.blat = (self.lat + WWV_LAT) / 2
         self.blon = (self.lon + WWV_LON) / 2
+
+        self.t_offset = round_down(self.blon / 15)
 
         self.RXsuntimes = suncalc.get_times(d, self.lon, self.lat)
         self.Bsuntimes = suncalc.get_times(d, self.blon, self.blat)
@@ -647,6 +651,8 @@ class Grape:
 
                     plt.savefig(str(figname) + '.png', dpi=250,
                                 orientation='landscape')
+                    plt.close()
+
 
             else:
                 print("Please provide a valid valname!")
@@ -1028,6 +1034,7 @@ class GrapeHandler:
         self.bestgid = 0
         self.bestFits = None
         self.valid = True
+        self.ss_factor = n
 
         for directory in dirnames:
             if os.path.exists(directory):
@@ -1543,6 +1550,8 @@ class GrapeHandler:
         plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.close()
+
 
     def yearDopPlot(self, figname, fSize=22):
         """
@@ -1559,7 +1568,6 @@ class GrapeHandler:
         startday = self.grapes[0].day
         startmonth = self.grapes[0].month
         startyear = self.grapes[0].year
-        cityState = self.grapes[0].cityState
 
         skipcount = 0
         if startmonth != 1:
@@ -1575,7 +1583,7 @@ class GrapeHandler:
                 skipcount += 1
 
         grapeindex = 0
-        for i, ind in enumerate(monthindex):
+        for i, ind in tqdm(enumerate(monthindex)):
             while ((grapeindex + skipcount) < (ind + monthlen[i])) and (grapeindex < len(self.grapes)):
                 grape = self.grapes[grapeindex]
                 day = grape.day
@@ -1600,38 +1608,39 @@ class GrapeHandler:
                     year_times.append(null_day)
                     skipcount += 1
 
-        for i in range(len(self.dMeds), 365):
+        # Fill in rest of year with zeros
+        for i in range(grapeindex + skipcount, 365):
             year_data.append(null_day)
             year_times.append(null_day)
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
-        # flat_year_data = []
-        # for day in year_data:
-        #     for second in day:
-        #         flat_year_data.append(second)
-        #
-        # rolled_year = np.roll(flat_year_data, -1*60*60*6)
-        #
-        # # Code to re-partition year_data into daylong chunks
-        # new_year_data = year_data
-        # count = 0
-        # for day in new_year_data:
-        #     for i, second in enumerate(day):
-        #         day[i] = rolled_year[count]
-        #         count += 1
-        #
-        # year_data = new_year_data
+        offset = self.grapes[0].t_offset
+        timeShift = int((offset*60*60) / self.ss_factor)
+
+        # Assembling and rolling flat data and time
+        flat_year_data = []     # Data
+        for day in year_data:
+            for second in day:
+                flat_year_data.append(second)
+        rolled_year = np.roll(flat_year_data, timeShift)
+
+        # Code to re-partition data and time into daylong arrays
+        new_year_data = year_data       # Data
+        count = 0
+        for day in new_year_data:
+            for i, second in enumerate(day):
+                day[i] = rolled_year[count]
+                count += 1
+        year_data = new_year_data
 
         scatter = None
-
-        print('Begin Plotting')
+        print('Begin Plotting \n')
         for i in tqdm(range(0, 365)):
             if np.any(year_data[i]):
                 xrange = [i for j in range(0, len(year_data[i]))]
-                # print('Plotting day %i / 365' % i)
                 scatter = plt.scatter(xrange, year_times[i], c=year_data[i], norm=colors.CenteredNorm(),
-                                      cmap='seismic')
+                                      cmap='seismic_r')
 
         plt.xlabel('Month', fontsize=fSize)
         plt.ylabel('Time, Hr', fontsize=fSize)
@@ -1650,9 +1659,11 @@ class GrapeHandler:
         cbar.ax.get_yaxis().labelpad = fSize
         cbar.ax.set_ylabel('Doppler Shift (Hz)', fontsize=fSize, rotation=270)
 
-        plt.title('%i WWV 10 MHz Doppler Shift Trend for %s' % (startyear, cityState),  # Title (top)
+        plt.title('%i WWV 10 MHz Doppler Shift Trend at Midpoint %s, %s' %      # Title (top)
+                  (startyear, decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon)),
                   fontsize=fSize)
         plt.savefig('%s.png' % figname, dpi=250, orientation='landscape')
+        plt.close()
 
     def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None):
 
@@ -1703,7 +1714,7 @@ class GrapeHandler:
 
 # Shortcut Functions ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60*5, monthRange=None):
+def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60*5, monthRange=None, p=False):
     """
     Shortcut function to quickly generate yearDopPlot using GrapeHandler
 
@@ -1735,7 +1746,13 @@ def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv
                            ('%s_%s_%s' % (data_dir, m, year)))
 
     gh = GrapeHandler(folders, filt=False, comb=True, med=False, tShift=False, n=n)
+
+    if p:
+        pickle_grape(gh)
+
     gh.yearDopPlot('%s_%s_%s' % (figname, state, year))
+
+    return gh
 
 
 # Global Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
