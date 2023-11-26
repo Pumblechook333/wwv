@@ -1080,7 +1080,7 @@ class GrapeHandler:
 
         valscombline = []
         for i in self.valscomb:
-            valscombline = valscombline+i
+            valscombline += i
 
         binlims = np.arange(-80, 5, 5)  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
