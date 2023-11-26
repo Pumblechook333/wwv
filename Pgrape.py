@@ -23,6 +23,7 @@ from fitter import Fitter
 from datetime import datetime
 import suncalc
 from tqdm import tqdm
+import pickle
 
 fnames = ['d', 'dop', 'doppler', 'doppler shift', 'f', 'freq', 'frequency']
 vnames = ['v', 'volt', 'voltage']
@@ -1646,6 +1647,111 @@ class GrapeHandler:
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
 
+    def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60 * 5, monthRange=None,
+                        p=False):
+        """
+        Shortcut function to quickly generate yearDopPlot using GrapeHandler
+
+        :param figname: prefix of the figures to be produced
+        :param state: US State of the RX
+        :param year: Year of data collection
+        :param beacon: TX Beacon Name
+        :param n: Subsampling term
+        :param monthRange:  Range of months to search for (eg. [int, int], or [int, 'rest'] to go from first index to last
+                            available month)
+        :return:
+        """
+
+        months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
+        data_dir = '%s_data/' % state
+
+        folders = []
+        if monthRange:
+            if monthRange[1] == 'rest':
+                monthClip = months[monthRange[0]::]
+            else:
+                monthClip = months[monthRange[0]:monthRange[1]]
+            for m in monthClip:
+                folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
+                               ('%s_%s_%s' % (data_dir, m, year)))
+        else:
+            for m in months:
+                folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
+                               ('%s_%s_%s' % (data_dir, m, year)))
+
+        gh = GrapeHandler(folders, filt=False, comb=True, med=False, tShift=False, n=n)
+
+        if p:
+            pickle_grape(gh)
+
+        gh.yearDopPlot('%s_%s_%s' % (figname, state, year))
+
+        return gh
+########################################################################################################################
+def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60*5, monthRange=None, p=False):
+    """
+    Shortcut function to quickly generate yearDopPlot using GrapeHandler
+
+    :param figname: prefix of the figures to be produced
+    :param state: US State of the RX
+    :param year: Year of data collection
+    :param beacon: TX Beacon Name
+    :param n: Subsampling term
+    :param monthRange:  Range of months to search for (eg. [int, int], or [int, 'rest'] to go from first index to last
+                        available month)
+    :return:
+    """
+
+    months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
+    data_dir = '%s_data/' % state
+
+    folders = []
+    if monthRange:
+        if monthRange[1] == 'rest':
+            monthClip = months[monthRange[0]::]
+        else:
+            monthClip = months[monthRange[0]:monthRange[1]]
+        for m in monthClip:
+            folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
+                           ('%s_%s_%s' % (data_dir, m, year)))
+    else:
+        for m in months:
+            folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
+                           ('%s_%s_%s' % (data_dir, m, year)))
+
+    gh = GrapeHandler(folders, filt=False, comb=True, med=False, tShift=False, n=n)
+
+    if p:
+        pickle_grape(gh)
+
+    gh.yearDopPlot('%s_%s_%s' % (figname, state, year))
+
+    return gh
+def pickle_grape(gObj, filename=None):
+    if not filename:
+        if isinstance(gObj, Grape):
+            filename = 'g_%s_%s.pkl' % (gObj.cityState, gObj.date)
+        if isinstance(gObj, GrapeHandler):
+            filename = 'gh_%s_%s_%s.pkl' % (gObj.grapes[0].cityState[-2::], gObj.grapes[0].date, gObj.grapes[-1].date)
+
+    with open(filename, 'wb') as f:  # open a text file
+        gPickle = pickle.dump(gObj, f)  # serialize the grape object
+        f.close()
+
+    return gPickle
+
+
+def unpickle_grape(gPickleFname):
+    with open(gPickleFname, 'rb') as f:
+        gObj = pickle.load(f)  # deserialize using load()
+        f.close()
+
+    if isinstance(gObj, Grape):
+        print('Grape %s %s loaded!' % (gObj.cityState, gObj.date))
+    if isinstance(gObj, GrapeHandler):
+        print('Grape Handler %s %s through %s loaded!' % (gObj.grapes[0].cityState[-2::], gObj.grapes[0].date, gObj.grapes[-1].date))
+
+    return gObj
 def decdeg2dms(dd):
     mnt, sec = divmod(abs(dd)*3600, 60)
     deg, mnt = divmod(mnt, 60)
