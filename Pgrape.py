@@ -2,7 +2,7 @@
     This module contains the definitions for grape and grapeHandler objects, intended to process data from Grape SDR V1
     stations receiving from WWV-10 in Fort Collins, Colorado
 
-    @Author: Sabastian Carlos Fernandes & Tiago Trigo [New Jersey Institute of Technology]
+    @Author: Tiago Trigo & Sabastian Carlos Fernandes [New Jersey Institute of Technology]
     @Date: 11.1.2023
     @Version: 1.0(Power)
     @Credit:    Dr. Gareth Perry [New Jersey Institute of Technology],
@@ -1647,46 +1647,6 @@ class GrapeHandler:
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
 
-    def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60 * 5, monthRange=None,
-                        p=False):
-        """
-        Shortcut function to quickly generate yearDopPlot using GrapeHandler
-
-        :param figname: prefix of the figures to be produced
-        :param state: US State of the RX
-        :param year: Year of data collection
-        :param beacon: TX Beacon Name
-        :param n: Subsampling term
-        :param monthRange:  Range of months to search for (eg. [int, int], or [int, 'rest'] to go from first index to last
-                            available month)
-        :return:
-        """
-
-        months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
-        data_dir = '%s_data/' % state
-
-        folders = []
-        if monthRange:
-            if monthRange[1] == 'rest':
-                monthClip = months[monthRange[0]::]
-            else:
-                monthClip = months[monthRange[0]:monthRange[1]]
-            for m in monthClip:
-                folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
-                               ('%s_%s_%s' % (data_dir, m, year)))
-        else:
-            for m in months:
-                folders.append(('%s%s_%s_%s' % (data_dir, beacon, m, year)) if state == 'NJ' else
-                               ('%s_%s_%s' % (data_dir, m, year)))
-
-        gh = GrapeHandler(folders, filt=False, comb=True, med=False, tShift=False, n=n)
-
-        if p:
-            pickle_grape(gh)
-
-        gh.yearDopPlot('%s_%s_%s' % (figname, state, year))
-
-        return gh
 ########################################################################################################################
 def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv', n=60*5, monthRange=None, p=False):
     """
