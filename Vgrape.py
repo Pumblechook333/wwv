@@ -1804,7 +1804,7 @@ class GrapeHandler:
         ax.set_xlabel('UTC Hour', fontsize=fSize)
         ax.set_ylabel(vlabel, fontsize=fSize)
         ax.set_xlim(0, 24)  # UTC day
-        ax.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        ax.set_yscale('log')  # -1 to 1 Hz for Doppler shift
         ax.set_xticks(np.arange(0, 25, 2))
         ax.tick_params(axis='x', labelsize=20)
         ax.tick_params(axis='y', labelsize=20)
