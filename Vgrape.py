@@ -296,12 +296,12 @@ class Grape:
         if self.loaded:
             self.t_range = self.time / timediv
             self.f_range = self.freq - fdel
-            self.Vdb_range = 10 * np.log10(self.Vpk ** 2)
-            self.v_range = 20*np.log10(self.Vpk)
+            self.Vdb_range = 10 * np.log10(self.Vpk ** 2) #Conversion to Relative Power
+            self.v_range = 10*np.log10(self.Vpk)
             if self.filtered:
                 self.f_range_filt = self.freq_filt - fdel
-                self.Vdb_range_filt = 10 * np.log10(self.Vpk_filt ** 2)
-                self.v_range_filt = 20*np.log10(self.Vpk_filt)
+                self.Vdb_range_filt = 10 * np.log10(self.Vpk_filt ** 2) #Conversion to Relative Power
+                self.v_range_filt = 10*np.log10(self.Vpk_filt) #Converion to dB scale, not the same as R Power
             self.converted = True
         else:
             print('Time, frequency and Vpk not loaded!')
