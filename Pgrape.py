@@ -992,6 +992,7 @@ class GrapeHandler:
         self.bestgid = 0
         self.bestFits = None
         self.valid = True
+        self.ss_factor = n
 
         for directory in dirnames:
             if os.path.exists(directory):
@@ -1502,6 +1503,7 @@ class GrapeHandler:
 
         plt.show()
         plt.close()
+
     def yearDopPlot(self, figname, fSize=22):
         """
         Plots vertical gradients representative of doppler shifts per day across the year
@@ -1512,12 +1514,11 @@ class GrapeHandler:
 
         year_data = []
         year_times = []
-        null_day = [0 for i in range(0, 86400)]
+        null_day = [0] * self.valslength
 
         startday = self.grapes[0].day
         startmonth = self.grapes[0].month
         startyear = self.grapes[0].year
-        cityState = self.grapes[0].cityState
 
         skipcount = 0
         if startmonth != 1:
@@ -1533,7 +1534,7 @@ class GrapeHandler:
                 skipcount += 1
 
         grapeindex = 0
-        for i, ind in enumerate(monthindex):
+        for i, ind in tqdm(enumerate(monthindex)):
             while ((grapeindex + skipcount) < (ind + monthlen[i])) and (grapeindex < len(self.grapes)):
                 grape = self.grapes[grapeindex]
                 day = grape.day
@@ -1558,22 +1559,39 @@ class GrapeHandler:
                     year_times.append(null_day)
                     skipcount += 1
 
-        for i in range(len(self.dMeds), 365):
+        # Fill in rest of year with zeros
+        for i in range(grapeindex + skipcount, 365):
             year_data.append(null_day)
             year_times.append(null_day)
 
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
 
+        offset = self.grapes[0].t_offset
+        timeShift = int((offset * 60 * 60) / self.ss_factor)
+
+        # Assembling and rolling flat data and time
+        flat_year_data = []  # Data
+        for day in year_data:
+            for second in day:
+                flat_year_data.append(second)
+        rolled_year = np.roll(flat_year_data, timeShift)
+
+        # Code to re-partition data and time into daylong arrays
+        new_year_data = year_data  # Data
+        count = 0
+        for day in new_year_data:
+            for i, second in enumerate(day):
+                day[i] = rolled_year[count]
+                count += 1
+        year_data = new_year_data
+
         scatter = None
-
-        for i in range(0, 365):
-            if year_data[i] != null_day:
+        print('Begin Plotting \n')
+        for i in tqdm(range(0, 365)):
+            if np.any(year_data[i]):
                 xrange = [i for j in range(0, len(year_data[i]))]
-                print('Plotting day %i / 365' % i)
-                scatter = plt.scatter(xrange, year_times[i], c=year_data[i], cmap='seismic')
-
-        # for m in monthindex:
-        #     plt.axvline(x=m, color='y', linewidth=3, linestyle='dashed', alpha=0.3)
+                scatter = plt.scatter(xrange, year_times[i], c=year_data[i], norm=colors.CenteredNorm(),
+                                      cmap='seismic_r')
 
         plt.xlabel('Month', fontsize=fSize)
         plt.ylabel('Time, Hr', fontsize=fSize)
@@ -1581,22 +1599,21 @@ class GrapeHandler:
         plt.yticks([i for i in range(0, 25)][::2])
         plt.xlim(0, 365)
         plt.ylim(0, 24)
-        plt.tick_params(axis='x', labelsize=fSize-2)
-        plt.tick_params(axis='y', labelsize=fSize-2)
+        plt.tick_params(axis='x', labelsize=fSize - 2)
+        plt.tick_params(axis='y', labelsize=fSize - 2)
         plt.grid(axis='x', alpha=0.3)
         plt.grid(axis='y', alpha=1)
 
         cbar = fig.colorbar(scatter, extend='both')
         cbar.minorticks_on()
-        cbar.ax.tick_params(labelsize=fSize-2)
+        cbar.ax.tick_params(labelsize=fSize - 2)
         cbar.ax.get_yaxis().labelpad = fSize
         cbar.ax.set_ylabel(plabel, fontsize=fSize, rotation=270)
 
-        plt.title('%i WWV 10 MHz Relative Power Trend for %s' % (startyear, cityState),  # Title (top)
+        plt.title('%i WWV 10 MHz Doppler Shift Trend at Midpoint %s, %s' %  # Title (top)
+                  (startyear, decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon)),
                   fontsize=fSize)
         plt.savefig('%s.png' % figname, dpi=250, orientation='landscape')
-
-        plt.show()
         plt.close()
 
     def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None):
