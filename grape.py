@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 from matplotlib import colors, cm
 import pylab as pl
 import numpy as np
-from math import floor, ceil
+from math import floor, ceil, sin, cos, sqrt, atan2, radians as rad, degrees as deg
 from csv import reader
 import os
 import imageio as imageio
@@ -184,8 +184,12 @@ class Grape:
 
         d = datetime(self.year, self.month, self.day, 1)  # datetime object for 1st hour of the day
 
-        self.blat = (self.lat + WWV_LAT) / 2
-        self.blon = (self.lon + WWV_LON) / 2
+        # Old average coordinates formula
+        # self.blat = (self.lat + WWV_LAT) / 2
+        # self.blon = (self.lon + WWV_LON) / 2
+
+        self.blat, self.blon = mpt_coords(WWV_LAT, WWV_LON, self.lat, self.lon)
+        # self.blat, self.blon = avg_mpt(WWV_LAT, WWV_LON, self.lat, self.lon)
 
         self.t_offset = round_down(self.blon / 15)
 
@@ -424,7 +428,7 @@ class Grape:
 
     # Plots ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def dopPowPlot(self, figname, ylim=None, fSize=22):
+    def dopPowPlot(self, figname, ylim=None, fSize=22, pwr=True):
         """
         Plot the doppler shift and relative power over time of the signal
 
@@ -460,16 +464,17 @@ class Grape:
             ax1.grid(axis='x', alpha=1)
             ax1.grid(axis='y', alpha=0.5)
 
-            ax2 = ax1.twinx()
-            ax2.plot(self.t_range, Vdbrange, 'r-', linewidth=2)  # NOTE: Set for filtered version
-            ax2.set_ylabel(plabel, color='r', fontsize=fSize)
-            ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
-            ax2.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            if pwr:
+                ax2 = ax1.twinx()
+                ax2.plot(self.t_range, Vdbrange, 'r-', linewidth=2)  # NOTE: Set for filtered version
+                ax2.set_ylabel(plabel, color='r', fontsize=fSize)
+                ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
+                ax2.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
 
-            # following lines set ylim for power readings in file
+                # following lines set ylim for power readings in file
 
-            for tl in ax2.get_yticklabels():
-                tl.set_color('r')
+                for tl in ax2.get_yticklabels():
+                    tl.set_color('r')
 
             plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
                       # 'Node: N0000020    Gridsquare: FN20vr \n'
@@ -921,16 +926,10 @@ class Grape:
 
                 indexhr = 0
                 # for hour in hours:
-                for hour in hours:
-                    print('\nResolving hour: ' + str(indexhr) + ' ('
-                          + str(floor((indexhr / len(hours)) * 100)) + '% complete) \n'
-                          + '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
-
+                print('\nResolving Hours:\n')
+                for hour in tqdm(hours):
                     index = 0
                     for srange in hour:
-                        # print('Resolving subrange: ' + str(index) + ' ('
-                        #       + str(floor((index / len(hour)) * 100)) + '% complete)')
-
                         binlims = np.arange(-2.5, 2.6, 0.1)
 
                         f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
@@ -992,10 +991,11 @@ class Grape:
 
                 self.sunPosOver(fSize)
 
-                plt.title('WWV 10 MHz Doppler Shift Distribution PDFs \n'  # Title (top)
-                          # 'Node: N0000020    Gridsquare: FN20vr \n'
-                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                          + self.date + ' UTC',
+                plt.title('WWV 10 MHz Doppler Shift Distribution PDFs for %s \n' % self.date  # Title (top)
+                          + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s]'
+                          % (decdeg2dms(self.lat), decdeg2dms(self.lon),
+                             decdeg2dms(self.blat), decdeg2dms(self.blon),
+                             decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)),
                           fontsize=fSize)
 
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
@@ -1303,9 +1303,12 @@ class GrapeHandler:
         # ax1.legend(['25th Q', '40th Q', 'Median', '60th Q', '75th Q'], fontsize=fSize)
 
         plt.title('WWV 10 MHz Doppler Shift Plot (Q 25, 40, 50, 60, 75) \n'  # Title (top)
-                  + '# of Grapes: ' + str(len(self.grapes)) + ' || '
+                  + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+                  % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
+                     decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
+                     decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
+                  '# of Grapes: ' + str(len(self.grapes)) + ' || '
                   + self.month,
-                  # + '2022',
                   fontsize=fSize)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
@@ -1500,7 +1503,9 @@ class GrapeHandler:
         plt.legend(["Sun Up Medians",
                     "Sun Down Medians"], fontsize=22)
 
-        plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
+        plt.title('WWV 10 MHz Doppler Shift Median Trend for %i \n' % self.grapes[0].year +
+                  'Sun Up / Sun Down Times Relative to Midpoint %s %s'
+                  % (decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon)),  # Title (top)
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
 
@@ -1551,7 +1556,6 @@ class GrapeHandler:
                   fontsize=22)
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
-
 
     def yearDopPlot(self, figname, fSize=22):
         """
@@ -1665,7 +1669,7 @@ class GrapeHandler:
         plt.savefig('%s.png' % figname, dpi=250, orientation='landscape')
         plt.close()
 
-    def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None):
+    def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None, **kwargs):
 
         if ylim is None:
             ylim = ydoplims(self.valscomb, 'f')
@@ -1695,18 +1699,27 @@ class GrapeHandler:
 
         cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'))
         cbar.minorticks_on()
-        cbar.ax.set_yticklabels(['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        tick_labels = kwargs.get('tl', ['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        cbar.ax.set_yticklabels(tick_labels)
         cbar.ax.tick_params(labelsize=fSize - 2)
         cbar.ax.get_yaxis().labelpad = fSize + 3
         cbar.ax.set_ylabel('Date of Trace', fontsize=fSize, rotation=270)
 
-        plt.title('WWV 10 MHz Doppler Shift Plot Comparison \n'  # Title (top)
-                  + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+        # plt.title('WWV 10 MHz Doppler Shift Plot Comparison \n'  # Title (top)
+        #           + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+        #           % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
+        #             decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
+        #             decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
+        #           self.grapes[0].date + ' through ' + self.grapes[-1].date,
+        #           fontsize=fSize)
+        plt.suptitle('Doppler Residual Traces (' + self.grapes[0].date + ' - ' + self.grapes[-1].date + ')',
+                     fontsize=fSize+10, ha='center', weight='bold', x=0.45)  # Title (top)
+        plt.title('[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
                   % (decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
-                    decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
-                    decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
-                  self.grapes[0].date + ' through ' + self.grapes[-1].date,
-                  fontsize=fSize)
+                     decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
+                     decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)),
+                  fontsize=fSize, ha='center')
+
         plt.tight_layout()
         plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
         plt.close()
@@ -1760,11 +1773,11 @@ def gen_yearDopPlot(figname='yearDopShift', state='NJ', year='2022', beacon='wwv
 def pickle_grape(gObj, filename=None):
     if not filename:
         if isinstance(gObj, Grape):
-            filename = 'g_%s_%s.pkl' % (gObj.cityState, gObj.date)
+            filename = 'g_%s_%s' % (gObj.cityState, gObj.date)
         if isinstance(gObj, GrapeHandler):
-            filename = 'gh_%s_%s_%s.pkl' % (gObj.grapes[0].cityState[-2::], gObj.grapes[0].date, gObj.grapes[-1].date)
+            filename = 'gh_%s_%s_%s' % (gObj.grapes[0].cityState[-2::], gObj.grapes[0].date, gObj.grapes[-1].date)
 
-    with open(filename, 'wb') as f:  # open a text file
+    with open(filename + '.pkl', 'wb') as f:  # open a text file
         gPickle = pickle.dump(gObj, f)  # serialize the grape object
         f.close()
 
@@ -1941,6 +1954,7 @@ def conv_time(timestamp, unit='h'):
 
     return convun
 
+
 def decdeg2dms(dd):
     mnt, sec = divmod(abs(dd)*3600, 60)
     deg, mnt = divmod(mnt, 60)
@@ -1953,3 +1967,37 @@ def decdeg2dms(dd):
     coordString = ' %i°%i\'%i\"' % (deg, mnt, sec)
 
     return coordString
+
+
+def mpt_coords(lat1, lon1, lat2, lon2):
+    """
+    Calculates the midpoint geographic location between the beacon (WWV) and reciever (Grape) along the great
+    circle path. Accepts parameters in degrees, and returns coordinates in degrees.
+
+    :param lat1: Latitude of the Beacon
+    :param lon1: Longitude of the Beacon
+    :param lat2: Latitude of the Receiver
+    :param lon2: Longitude of the Receiver
+    :return: Latitude, Longitude of the midpoint in degrees
+    """
+    lat1, lon1, lat2, lon2 = rad(lat1), rad(lon1), rad(lat2), rad(lon2)
+
+    # 1 = origin (WWV), 2 = receiver (Newark)
+    X = cos(lat2) * cos(lon2 - lon1)
+    Y = cos(lat2) * sin(lon2 - lon1)
+
+    # midpoint (bounce point) latitude
+    mlat = atan2(sin(lat1) + sin(lat2), sqrt((cos(lat1) + X) ** 2 + Y ** 2))
+    # midpoint (bounce point) longitude
+    mlon = lon1 + atan2(Y, cos(lat1) + X)
+
+    mlat, mlon = deg(mlat), deg(mlon)
+
+    return mlat, mlon
+
+
+def avg_mpt(lat1, lon1, lat2, lon2):
+    mlat = (lat1 + lat2) / 2
+    mlon = (lon1 + lon2) / 2
+
+    return mlat, mlon

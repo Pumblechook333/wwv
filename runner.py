@@ -1,27 +1,9 @@
 import grape
-import matplotlib.pyplot as plt
 
-# months = ('jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec')
-# mID = (str(i) for i in range(1, 13))
-# monthDict = dict(zip(months, mID))
-# state = 'NJ'
-# data_dir = '%s_data/' % state
-# beacon = 'wwv'
-# year = '2022'
-# dest_dir = '%s_spreads/spreads_%s' % (state, year)
-# test = ['NJ_data/testing']
+# g = grape.GrapeHandler(['tot_eclipse_24'], filt=True, tShift=False)
+# grape.pickle_grape(g, filename='tot_ecl_24_test')
 
-# gh = grape.gen_yearDopPlot(state='NJ', year='2023', n=10*60, monthRange=[0, 6], p=True)
+g = grape.unpickle_grape('tot_ecl_24_test.pkl')
 
-year = '2023'
-
-gh = grape.unpickle_grape('NJ_%s_data_ss10min.pkl' % year)
-gh.yearDopPlot('%s_%s_%s' % ('yearDopShift', 'NJ', year))
-
-# gh = grape.GrapeHandler(['ann_ecl_23'], filt=True, n=1)
-# gh = grape.unpickle_grape('2023_ecl_gh.pkl')
-# gh.dopPlotOver('test', ylim=[-1.5, 2])
-
-# yr = '22'
-# if not os.path.exists('cleveland_doppow_unf'+yr):
-#     os.makedirs('cleveland_doppow_unf'+yr)
+tl = ['', 'Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
+g.dopPlotOver(figname='tot_ecl_24_edit', tl=tl, ylim=[-1.3, 1.5])
