@@ -4,3 +4,6 @@
 *.gif
 *.pkl
 __pycache__/grape.cpython-39.pyc
+*.txt
+*.xml
+*.pyc

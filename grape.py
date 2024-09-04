@@ -27,6 +27,7 @@ from re import sub
 from fitter import Fitter
 from datetime import datetime
 import suncalc
+import pandas as pd
 
 import pickle
 from tqdm import tqdm
@@ -104,7 +105,7 @@ class Grape:
         self.Vdb_range_filt = None
 
         # Calculated sun position and choice times (correlated to time series)
-        self.sunpos = None
+        self.alttrace = None
 
         self.TXsuntimes = None
         self.Bsuntimes = None
@@ -163,9 +164,6 @@ class Grape:
         # Save the header data separately from the plottable data
 
         header_data = lines[:18]
-        # for i in header_data:
-        #     print(i)
-        # col_title = lines[18].split()               # Titles for each data range
 
         self.date = str(header_data[0][1]).split('T')[0]
         self.node = header_data[0][2]
@@ -182,22 +180,18 @@ class Grape:
         self.month = int(splitdat[1])
         self.day = int(splitdat[2])
 
-        d = datetime(self.year, self.month, self.day, 1)  # datetime object for 1st hour of the day
-
-        # Old average coordinates formula
-        # self.blat = (self.lat + WWV_LAT) / 2
-        # self.blon = (self.lon + WWV_LON) / 2
+        d = datetime(self.year, self.month, self.day)  # datetime object for 1st hour of the day
 
         self.blat, self.blon = mpt_coords(WWV_LAT, WWV_LON, self.lat, self.lon)
-        # self.blat, self.blon = avg_mpt(WWV_LAT, WWV_LON, self.lat, self.lon)
 
         self.t_offset = round_down(self.blon / 15)
 
-        self.RXsuntimes = suncalc.get_times(d, self.lon, self.lat)
-        self.Bsuntimes = suncalc.get_times(d, self.blon, self.blat)
-        self.TXsuntimes = suncalc.get_times(d, WWV_LON, WWV_LAT)
+        height = 200e3
+        self.RXsuntimes = suncalc.get_times(d, self.lon, self.lat, height=height)
+        self.Bsuntimes = suncalc.get_times(d, self.blon, self.blat, height=height)
+        self.TXsuntimes = suncalc.get_times(d, WWV_LON, WWV_LAT, height=height)
 
-        self.sunpos = []
+        self.alttrace = []
 
         # Read each line of file after the header
         for line in lines[19::n]:
@@ -209,7 +203,9 @@ class Grape:
             second = int(utc_time[2][0:2])
 
             d = datetime(self.year, self.month, self.day, hour, minute, second)
-            self.sunpos.append(suncalc.get_position(d, self.lon, self.lat))
+            pos = suncalc.get_position(d, self.blon, self.blat)
+            alt = pos['altitude']
+            self.alttrace.append(alt * (180 / np.pi))
 
             sec = (float(hour) * 3600) + \
                   (float(minute) * 60) + \
@@ -428,7 +424,7 @@ class Grape:
 
     # Plots ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def dopPowPlot(self, figname, ylim=None, fSize=22, pwr=True):
+    def dopPowPlot(self, figname, ylim=None, fSize=22, axis2='pwr'):
         """
         Plot the doppler shift and relative power over time of the signal
 
@@ -464,7 +460,7 @@ class Grape:
             ax1.grid(axis='x', alpha=1)
             ax1.grid(axis='y', alpha=0.5)
 
-            if pwr:
+            if axis2 == 'pwr':
                 ax2 = ax1.twinx()
                 ax2.plot(self.t_range, Vdbrange, 'r-', linewidth=2)  # NOTE: Set for filtered version
                 ax2.set_ylabel(plabel, color='r', fontsize=fSize)
@@ -475,6 +471,40 @@ class Grape:
 
                 for tl in ax2.get_yticklabels():
                     tl.set_color('r')
+
+            if axis2 == 'sza':
+                alt_color = 'c'
+                ax2 = ax1.twinx()
+                ax2.plot(self.t_range, self.alttrace, f'{alt_color}-', linewidth=1)
+                ax2.set_ylabel('Altitude (°)', color=alt_color, fontsize=fSize)
+                ax2.set_ylim(0, 90)
+                ax2.tick_params(axis='y', labelsize=20)
+
+                for tl in ax2.get_yticklabels():
+                    tl.set_color(alt_color)
+
+            if axis2 == 'rt':
+                styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
+                ax2 = ax1.twinx()
+
+                hour_range = np.arange(0, 24, 1)
+
+                rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
+                files = os.listdir(rt_data_dir)
+                selection = files[-1]
+                df = pd.read_csv(rt_data_dir+selection, header=None)
+
+                ls = []
+                for i in range(0, df.shape[1]):
+                    l = ax2.plot(hour_range, df[i], styles[i], linewidth=2)
+                    ls.append(l)
+
+                plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize)
+
+                file_label = selection.split('_percentages')[0]
+                ax2.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
+                ax2.set_ylim(0, 1)
+                ax2.tick_params(axis='y', labelsize=20)
 
             plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
                       # 'Node: N0000020    Gridsquare: FN20vr \n'
@@ -1003,6 +1033,80 @@ class Grape:
 
             else:
                 print("Please provide a valid valname!")
+        else:
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
+            self.units()
+
+    def dopRtPlot(self, figname, ylim=None, fSize=22):
+        """
+        Plot the doppler shift and relative power over time of the signal
+
+        :param fSize: Font size to scale all plot text (default = 22)
+        :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
+         for the data (default = [-1, 1])
+        :param figname: Filename for the produced .png plot image
+        :return: .png plot into local repository
+        """
+
+        if ylim is None:
+            ylim = [-1, 1]
+
+        if self.converted:
+            frange = self.f_range if not self.filtered else self.f_range_filt
+            Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
+
+            fSize = fSize
+
+            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+            plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
+                      # 'Node: N0000020    Gridsquare: FN20vr \n'
+                      # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
+                      + self.date + ' UTC',
+                      fontsize=fSize)
+
+            ax1 = fig.add_subplot(111)
+            ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
+
+            # self.sunPosOver(fSize)
+
+            ax1.set_xlabel('UTC Hour', fontsize=fSize)
+            ax1.set_ylabel(flabel, fontsize=fSize)
+            ax1.set_xlim(0, 24)  # UTC day
+            ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+            ax1.set_xticks(np.arange(0, 25, 2))
+            ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            ax1.grid(axis='x', alpha=1)
+            ax1.grid(axis='y', alpha=0.5)
+
+            styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
+            hour_range = np.arange(0, 24, 1)
+
+            rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
+            files = os.listdir(rt_data_dir)
+            for f in files:
+                df = pd.read_csv(rt_data_dir+f, header=None)
+
+                ax2 = ax1.twinx()
+                ls = []
+                for i in range(0, df.shape[1]):
+                    l = ax2.plot(hour_range, df[i], styles[i], linewidth=2)
+                    ls.append(l)
+
+                plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize)
+
+                file_label = f.split('_percentages')[0]
+                ax2.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
+                ax2.set_ylim(0, 1)
+                ax2.tick_params(axis='y', labelsize=20)
+
+                plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
+
+                ax2.clear()
+
+            plt.close()
         else:
             print('Data units not yet converted! \n'
                   'Attempting unit conversion... \n'
