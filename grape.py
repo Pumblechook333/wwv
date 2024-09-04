@@ -483,32 +483,7 @@ class Grape:
                 for tl in ax2.get_yticklabels():
                     tl.set_color(alt_color)
 
-            if axis2 == 'rt':
-                styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
-                ax2 = ax1.twinx()
-
-                hour_range = np.arange(0, 24, 1)
-
-                rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
-                files = os.listdir(rt_data_dir)
-                selection = files[-1]
-                df = pd.read_csv(rt_data_dir+selection, header=None)
-
-                ls = []
-                for i in range(0, df.shape[1]):
-                    l = ax2.plot(hour_range, df[i], styles[i], linewidth=2)
-                    ls.append(l)
-
-                plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize)
-
-                file_label = selection.split('_percentages')[0]
-                ax2.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
-                ax2.set_ylim(0, 1)
-                ax2.tick_params(axis='y', labelsize=20)
-
             plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
-                      # 'Node: N0000020    Gridsquare: FN20vr \n'
-                      # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                       + self.date + ' UTC',
                       fontsize=fSize)
             plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
@@ -1057,19 +1032,10 @@ class Grape:
             frange = self.f_range if not self.filtered else self.f_range_filt
             Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
 
-            fSize = fSize
-
             fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-            plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
-                      # 'Node: N0000020    Gridsquare: FN20vr \n'
-                      # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                      + self.date + ' UTC',
-                      fontsize=fSize)
 
-            ax1 = fig.add_subplot(111)
+            ax1 = fig.add_subplot()
             ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
-
-            # self.sunPosOver(fSize)
 
             ax1.set_xlabel('UTC Hour', fontsize=fSize)
             ax1.set_ylabel(flabel, fontsize=fSize)
@@ -1081,6 +1047,10 @@ class Grape:
             ax1.grid(axis='x', alpha=1)
             ax1.grid(axis='y', alpha=0.5)
 
+            plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
+                      + self.date + ' UTC',
+                      fontsize=fSize)
+
             styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
             hour_range = np.arange(0, 24, 1)
 
@@ -1090,10 +1060,9 @@ class Grape:
                 df = pd.read_csv(rt_data_dir+f, header=None)
 
                 ax2 = ax1.twinx()
-                ls = []
+
                 for i in range(0, df.shape[1]):
-                    l = ax2.plot(hour_range, df[i], styles[i], linewidth=2)
-                    ls.append(l)
+                    ax2.plot(hour_range, df[i], styles[i], linewidth=2)
 
                 plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize)
 
@@ -1105,6 +1074,8 @@ class Grape:
                 plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
 
                 ax2.clear()
+
+            # plt.savefig(str(figname) + "_" + 'testing' + '.png', dpi=250, orientation='landscape')
 
             plt.close()
         else:

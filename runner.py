@@ -15,7 +15,11 @@ if __name__ == '__main__':
                     med=False, count=False,
                     n=1)
 
-    dirname = 'FIGURES/aztrace'
-    figname = 'aztrace'
-    g.dopPowPlot(f'{dirname}/{figname}', axis2='sza')
-    # g.dopRtPlot('rtplot')
+    figname = 'rtplot'
+    dirname = f'FIGURES/{figname}'
+    g.dopRtPlot(f'{dirname}/{figname}')
+
+    # figname = 'aztrace'
+    # dirname = f'FIGURES/{figname}'
+    # g.dopPowPlot(f'{dirname}/{figname}', axis2='sza')
+
