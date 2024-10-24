@@ -3,6 +3,7 @@ import grape
 NJ_DATA_PATH = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/NJ_data'
 K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
+
 def eclipse_grapehandler():
     g = grape.GrapeHandler(['tot_eclipse_24'], filt=True, tShift=False)
     grape.pickle_grape(g, filename='tot_ecl_24_test')
@@ -83,5 +84,4 @@ def solarzenith():
 
 if __name__ == '__main__':
 
-    best_fits(2021, 7, 1,
-              mbl=30)
+    best_fits(2021, 7, 1, mbl=30)

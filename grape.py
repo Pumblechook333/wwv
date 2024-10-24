@@ -133,8 +133,26 @@ class Grape:
         self.converted = False
         self.filtered = False
 
+        # Load core Grape properties
         if filename:
             self.load(filename, n=n)
+
+        # Generate useful information to share between all plots
+        fontsize = 22
+        self.plot_settings = {
+            # Title Information
+            'date'      : self.date,
+            'lat'       : decdeg2dms(self.lat),
+            'lon'       : decdeg2dms(self.lon),
+            'blat'      : decdeg2dms(self.blat),
+            'blon'      : decdeg2dms(self.blon),
+            'wwvlat'    : decdeg2dms(WWV_LAT),
+            'wwvlon'    : decdeg2dms(WWV_LON),
+            # Title Formatting
+            'y'         : 1,
+            'pad'       : fontsize,
+            'fontsize'  : fontsize
+        }
 
         if self.loaded:
             if filt:
@@ -478,79 +496,74 @@ class Grape:
             else:
                 ylim = [-80, 10]
 
-        if self.converted:
-            frange = self.f_range if not self.filtered else self.f_range_filt
-            Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
-
-            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-            ax1 = fig.add_subplot(111)
-
-            range = Vdbrange if val == 'pwr' else frange
-            label = PLABEL if val == 'pwr' else FLABEL
-            ax1.set_ylabel(label, fontsize=fSize)
-            ax1.set_ylim(ylim)
-
-            ax1.plot(self.t_range, range, 'k', linewidth=2)  # color k for black
-            ax1.set_xlim(0, 24)
-
-            if kwargs.get('SPO', True):
-                self.sunPosOver(fSize, end_times=end_times, local=local)
-
-            tmp = np.arange(0, 25, 2)
-            if local:
-                # If time local to midpoint is requested
-                ax1.set_xlabel('Midpoint Local Time (Hours)', fontsize=fSize)
-
-                xrange = tmp + self.t_offset
-                for i, x in enumerate(xrange):
-                    if x < 0:
-                        xrange[i] = x + 24
-            else:
-                # If local time is not requested (default UT)
-                ax1.set_xlabel('Time UT (Hours)', fontsize=fSize)
-
-                xrange = tmp
-
-            ax1.set_xticks(tmp, labels=xrange.astype(int))
-            ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-            ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-            ax1.grid(axis='x', alpha=1)
-            ax1.grid(axis='y', alpha=0.5)
-
-            if axis2 == 'pwr':
-                ax2 = ax1.twinx()
-                ax2.plot(self.t_range, Vdbrange, 'r-', linewidth=2)  # NOTE: Set for filtered version
-                ax2.set_ylabel(PLABEL, color='r', fontsize=fSize)
-                ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
-                ax2.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-
-                # following lines set ylim for power readings in file
-
-                for tl in ax2.get_yticklabels():
-                    tl.set_color('r')
-
-            if axis2 == 'sza':
-                alt_color = 'c'
-                ax2 = ax1.twinx()
-                ax2.plot(self.t_range, self.zentrace, f'{alt_color}-', linewidth=1)
-                ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
-                ax2.set_ylim(0, 180)
-                ax2.tick_params(axis='y', labelsize=20)
-
-                for tl in ax2.get_yticklabels():
-                    tl.set_color(alt_color)
-
-            lbl_split = label.split(',')[0]
-            plt.title(f'WWV 10 MHz {lbl_split} Plot \n'  # Title (top)
-                      + self.date,
-                      fontsize=fSize)
-            plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
-            plt.close()
-        else:
-            print('Data units not yet converted! \n'
-                  'Attempting unit conversion... \n'
+        if not self.converted:
+            raise('Data units not yet converted! \n'
                   'Please try again.')
-            self.units()
+
+        frange = self.f_range if not self.filtered else self.f_range_filt
+        Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
+
+        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        ax1 = fig.add_subplot(111)
+
+        range = Vdbrange if val == 'pwr' else frange
+        label = PLABEL if val == 'pwr' else FLABEL
+        labelpad = 20
+        ax1.set_ylabel(label, fontsize=fSize)
+        ax1.set_ylim(ylim)
+
+        ax1.plot(self.t_range, range, 'k', linewidth=2)  # color k for black
+        ax1.set_xlim(0, 24)
+
+        if kwargs.get('SPO', False):
+            self.sunPosOver(fSize, end_times=end_times, local=local)
+
+        tmp = np.arange(0, 25, 2)
+        if local:
+            # If time local to midpoint is requested
+            ax1.set_xlabel('Midpoint Local Time (Hours)', fontsize=fSize)
+
+            xrange = tmp + self.t_offset
+            for i, x in enumerate(xrange):
+                if x < 0:
+                    xrange[i] = x + 24
+        else:
+            # If local time is not requested (default UT)
+            ax1.set_xlabel('Time UT (Hours)', fontsize=fSize)
+
+            xrange = tmp
+
+        ax1.set_xticks(tmp, labels=xrange.astype(int))
+        ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax1.grid(axis='x', alpha=1)
+        ax1.grid(axis='y', alpha=0.5)
+
+        if axis2 == 'pwr':
+            alt_color = 'r'
+            ax2 = ax1.twinx()
+            ax2.plot(self.t_range, Vdbrange, alt_color, linewidth=2)  # NOTE: Set for filtered version
+            ax2.set_ylabel(PLABEL, color=alt_color, fontsize=fSize)
+            ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
+            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+            ax2.spines['right'].set_color(alt_color)
+
+        if axis2 == 'sza':
+            alt_color = 'c'
+            ax2 = ax1.twinx()
+            ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
+            ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
+            ax2.set_ylim(0, 180)
+            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+            ax2.spines['right'].set_color(alt_color)
+
+        lbl_split = label.split(',')[0]
+        figtitle(ax1, lbl_split, **self.plot_settings)
+        
+        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        print(f'Plot saved to {figname}.png \n')
+        plt.show()
+        plt.close()
 
     def distPlot(self, valname, figname):
         """
@@ -587,12 +600,11 @@ class Grape:
                     pl.xlim([-1, 1])  # Doppler Shift Range
                     pl.xticks(np.arange(-1, 1.1, 0.1))
 
-                plt.title('WWV 10 MHz ' + label.split(',')[0] + ' Distribution Plot \n'  # Title (top)
-                          # 'Node: N0000020    Gridsquare: FN20vr \n'
-                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
-                          + self.date + ' UTC',
-                          fontsize=fSize)
+                lbl_split = label.split(',')[0]
+                figtitle(ax1, lbl_split, **self.plot_settings)
+                
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+                plt.show()
                 plt.close()
             else:
                 print("Please provide a valid valname!")
@@ -942,7 +954,7 @@ class Grape:
                   'Attempting unit conversion... \n'
                   'Please try again.')
             self.units()
-
+ 
     def bestFitsPlot(self, valname, figname, minBinLen=5, ylim=None, fSize=22):
         """
         Over-plots the best fits resolved for each specified time bin with the doppler shift data for the day
@@ -1024,8 +1036,7 @@ class Grape:
 
                     ylim = [bottom, top]
 
-                fSize = fSize
-                fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+                fig = plt.figure(figsize=(19, 10), layout='constrained')  # inches x, y with 72 dots per inch
                 ax1 = fig.add_subplot(111)
                 ax1.plot(self.t_range, yrange, color='k')  # color k for black
                 ax1.set_xlabel('UTC Hour', fontsize=fSize)
@@ -1034,47 +1045,35 @@ class Grape:
                 ax1.set_xticks(np.arange(0, 25, 2))
                 ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
                 ax1.grid(axis='x', alpha=1)
-                ax1.tick_params(axis='x',
-                                labelsize=fSize - 2)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.tick_params(axis='y', labelsize=fSize - 2)
+                labelpad = 20
+                ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+                ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
 
                 rng = np.arange(0, len(self.bestFits))
                 fitTimeRange = (rng / len(self.bestFits)) * 24
-                # fitTimeRange = [(i / len(self.bestFits)) * 24 for i in range(0, len(self.bestFits))]
                 self.bestFits = [list(i.keys())[0] for i in self.bestFits]
-                # self.bestFits = [list(i.keys())[0] for i in self.bestFits]
 
                 alt_color = 'c'
                 ax2 = ax1.twinx()
-                ax2.plot(self.t_range, self.zentrace, f'{alt_color}-', linewidth=1)
+                ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
                 ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
                 ax2.set_ylim(0, 180)
-                ax2.tick_params(axis='y', colors=alt_color, labelsize=20)
-                ax2.spines['right'].set_position(('axes', 1.15))
+                ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
                 ax2.spines['right'].set_color(alt_color)
-                # for tl in ax2.get_yticklabels():
-                #     tl.set_color(alt_color)
 
                 alt_color = 'r'
                 ax3 = ax1.twinx()
                 ax3.scatter(fitTimeRange, self.bestFits, color=alt_color)
                 ax3.set_ylabel('Best Fit PDF', color=alt_color, fontsize=fSize)
                 ax3.grid(axis='y', alpha=0.5)
-                ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2)
+                ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+                ax3.spines['right'].set_position(('axes', 1.15))
                 ax3.spines['right'].set_color(alt_color)
-                # for tl in ax3.get_yticklabels():
-                #     tl.set_color('r')
 
-                # self.sunPosOver(fSize)
-
-                plt.title('WWV 10 MHz Doppler Shift Distribution PDFs for %s \n' % self.date  # Title (top)
-                          + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s]'
-                          % (decdeg2dms(self.lat), decdeg2dms(self.lon),
-                             decdeg2dms(self.blat), decdeg2dms(self.blon),
-                             decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)),
-                          fontsize=fSize)
+                figtitle(ax1, 'Doppler Shift Distribution PDFs', **self.plot_settings)
 
                 plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+                plt.show()
                 plt.close()
 
             else:
@@ -1099,61 +1098,60 @@ class Grape:
         if ylim is None:
             ylim = [-1, 1]
 
-        if self.converted:
-            frange = self.f_range if not self.filtered else self.f_range_filt
-            Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
-
-            fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
-
-            ax1 = fig.add_subplot()
-            ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
-
-            ax1.set_xlabel('UTC Hour', fontsize=fSize)
-            ax1.set_ylabel(FLABEL, fontsize=fSize)
-            ax1.set_xlim(0, 24)  # UTC day
-            ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
-            ax1.set_xticks(np.arange(0, 25, 2))
-            ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-            ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-            ax1.grid(axis='x', alpha=1)
-            ax1.grid(axis='y', alpha=0.5)
-
-            plt.title('WWV 10 MHz Doppler Shift Plot \n'  # Title (top)
-                      + self.date + ' UTC',
-                      fontsize=fSize)
-
-            styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
-            hour_range = np.arange(0, 24, 1)
-
-            rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
-            files = os.listdir(rt_data_dir)
-            for f in files:
-                df = pd.read_csv(rt_data_dir + f, header=None)
-
-                ax2 = ax1.twinx()
-
-                for i in range(0, df.shape[1]):
-                    ax2.plot(hour_range, df[i], styles[i], linewidth=2)
-
-                plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize)
-
-                file_label = f.split('_percentages')[0]
-                ax2.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
-                ax2.set_ylim(0, 1)
-                ax2.tick_params(axis='y', labelsize=20)
-
-                plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
-
-                ax2.clear()
-
-            # plt.savefig(str(figname) + "_" + 'testing' + '.png', dpi=250, orientation='landscape')
-
-            plt.close()
-        else:
-            print('Data units not yet converted! \n'
-                  'Attempting unit conversion... \n'
+        if not self.converted:
+            raise('Data units not yet converted! \n'
                   'Please try again.')
-            self.units()
+
+        frange = self.f_range if not self.filtered else self.f_range_filt
+
+        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+
+        ax1 = fig.add_subplot(111)
+        ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
+
+        label = FLABEL
+        ax1.set_xlabel('Time UT (Hours)', fontsize=fSize)
+        ax1.set_ylabel(label, fontsize=fSize)
+        ax1.set_xlim(0, 24)  # UTC day
+        ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        tmp = np.arange(0, 25, 2)
+        ax1.set_xticks(tmp, labels=tmp.astype(int))
+        labelpad = 20
+        ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.grid(axis='x', alpha=1)
+        ax1.grid(axis='y', alpha=0.5)
+
+        lbl_split = label.split(',')[0]
+        figtitle(ax1, lbl_split, **self.plot_settings)
+
+        styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
+        hour_range = np.arange(0, 24, 1)
+
+        rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
+        files = os.listdir(rt_data_dir)
+        for f in files:
+            df = pd.read_csv(rt_data_dir + f, header=None)
+
+            ax2 = ax1.twinx()
+
+            for i in range(0, df.shape[1]):
+                ax2.plot(hour_range, df[i], styles[i], linewidth=2)
+
+            plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize, loc='upper left')
+
+            file_label = f.split('_percentages')[0]
+            ax2.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
+            ax2.set_ylim(0, 1)
+            ax2.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
+            ax1.set_xticks(tmp, labels=tmp.astype(int))
+
+            plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
+
+            ax2.clear()
+
+        plt.close()
+
 
 
 class GrapeHandler:
@@ -2188,14 +2186,11 @@ def mpt_coords(lat1, lon1, lat2, lon2):
     return mlat, mlon
 
 
-def avg_mpt(lat1, lon1, lat2, lon2):
-    mlat = (lat1 + lat2) / 2
-    mlon = (lon1 + lon2) / 2
-
-    return mlat, mlon
-
-
 def figname(**kwargs):
+    """
+    Method to produce Grape figure name based off of user input or current time.
+    """
+
     # %%
     # Get Figure Filename
     figname = kwargs.get('figname', None)
@@ -2215,3 +2210,35 @@ def figname(**kwargs):
         figname = f'{figdir}/{tstring}'
 
     return figname
+
+
+def figtitle(ax, plottype: str, **kwargs):
+    """
+    Method to produce uniform titles across Grape Plots
+
+    :param ax: matplotlib axes object to apply title to
+    :param plottype: String to describe the contents of the plot
+    :param kwargs: plot settings containing title information and formatting
+    :return: string to be set as plot title
+    """
+    unknown = '???'
+
+    date =      kwargs.get('date', unknown)
+    lat =       kwargs.get('lat', unknown)
+    lon =       kwargs.get('lon', unknown)
+    blat =      kwargs.get('blat', unknown)
+    blon =      kwargs.get('blon', unknown)
+    wwvlat =    kwargs.get('wwvlat', unknown)
+    wwvlon =    kwargs.get('wwvlon', unknown)
+
+    y =         kwargs.get('y', unknown)
+    pad =       kwargs.get('pad', unknown)
+    fontsize =  kwargs.get('fontsize', unknown)
+
+    tstring = f'WWV 10 MHz {plottype} for {date} \n' \
+                            + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s]' \
+                            % (lat, lon, blat, blon, wwvlat, wwvlon)
+
+    ax.set_title(tstring, y=y, pad=pad, fontsize=fontsize)
+
+    return tstring
