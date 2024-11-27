@@ -213,7 +213,7 @@ class Grape:
         self.t_offset = round_down(self.blon / 15)
 
         # "Sun-time" calculations performed with suncalc
-        height = 0
+        height = 200e3
         self.RXsuntimes = suncalc.get_times(d1, self.lon, self.lat, height=height)
         self.Bsuntimes = suncalc.get_times(d1, self.blon, self.blat, height=height)
         self.TXsuntimes = suncalc.get_times(d1, WWV_LON, WWV_LAT, height=height)
@@ -252,7 +252,7 @@ class Grape:
             newtime = d1 + timedelta(seconds=time)
             sza_times.append(newtime)
 
-        solpos = solarposition.get_solarposition(sza_times, self.blat, self.blon, altitude=200e3)
+        solpos = solarposition.get_solarposition(sza_times, self.blat, self.blon, altitude=height)
         self.zentrace = solpos['zenith'].values
 
         if len(self.time) != 0:
@@ -502,7 +502,7 @@ class Grape:
 
         frange = self.f_range if not self.filtered else self.f_range_filt
         Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
-
+        
         fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
 
@@ -560,10 +560,13 @@ class Grape:
         lbl_split = label.split(',')[0]
         figtitle(ax1, lbl_split, **self.plot_settings)
         
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
-        print(f'Plot saved to {figname}.png \n')
-        plt.show()
-        plt.close()
+        if kwargs.get('save', True):
+            plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+            print(f'Plot saved to {figname}.png \n')
+        # plt.show()
+        # plt.close()
+
+        return ax1
 
     def distPlot(self, valname, figname):
         """
@@ -1104,7 +1107,7 @@ class Grape:
 
         frange = self.f_range if not self.filtered else self.f_range_filt
 
-        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        fig = plt.figure(figsize=(19, 10), layout='constrained')  # inches x, y with 72 dots per inch
 
         ax1 = fig.add_subplot(111)
         ax1.plot(self.t_range, frange, 'k', linewidth=2)  # color k for black
@@ -1122,6 +1125,14 @@ class Grape:
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
 
+        alt_color = 'c'
+        ax2 = ax1.twinx()
+        ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
+        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
+        ax2.set_ylim(0, 180)
+        ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax2.spines['right'].set_color(alt_color)
+
         lbl_split = label.split(',')[0]
         figtitle(ax1, lbl_split, **self.plot_settings)
 
@@ -1130,25 +1141,50 @@ class Grape:
 
         rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
         files = os.listdir(rt_data_dir)
+        # for f in files:
+        #     df = pd.read_csv(rt_data_dir + f, header=None)
+
+        #     ax3 = ax1.twinx()
+
+        #     for i in range(0, df.shape[1]):
+        #         ax3.plot(hour_range, df[i], styles[i], linewidth=2)
+
+        #     plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize, loc='upper left')
+
+        #     file_label = f.split('_percentages')[0]
+        #     ax3.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
+        #     ax3.set_ylim(0, 1)
+        #     ax3.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
+        #     ax3.spines['right'].set_position(('axes', 1.15))
+        #     ax3.spines['right'].set_color('gray')
+
+        #     plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
+
+        #     ax3.clear()
+
+        alt_color = 'm'
+        ax3 = ax1.twinx()
+        ax3.set_ylim(0, 1)
+        ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax3.spines['right'].set_position(('axes', 1.15))
+        ax3.spines['right'].set_color(alt_color)
+
         for f in files:
             df = pd.read_csv(rt_data_dir + f, header=None)
 
-            ax2 = ax1.twinx()
-
+            lines = []
             for i in range(0, df.shape[1]):
-                ax2.plot(hour_range, df[i], styles[i], linewidth=2)
+                l = ax3.plot(hour_range, df[i], styles[i], linewidth=2)
+                lines.append(l)
 
             plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize, loc='upper left')
-
             file_label = f.split('_percentages')[0]
-            ax2.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
-            ax2.set_ylim(0, 1)
-            ax2.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
-            ax1.set_xticks(tmp, labels=tmp.astype(int))
+            ax3.set_ylabel(f'% of Rays Recieved ({file_label})', color=alt_color, fontsize=fSize)
 
             plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
 
-            ax2.clear()
+            for l in lines:
+                l[0].remove()
 
         plt.close()
 

@@ -6,4 +6,8 @@
 *.txt
 *.xml
 *.pyc
+*.dbf
+*.prj
+*.shp
+*.shx
 /__pycache__
