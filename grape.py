@@ -58,7 +58,7 @@ K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
 class Grape:
 
-    # Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Loading ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def __init__(self, filename: str, convun: bool = True, filt: bool = False, med: bool = False,
                  count: bool = False, n: int = 1):
@@ -148,11 +148,13 @@ class Grape:
             'blon'      : decdeg2dms(self.blon),
             'wwvlat'    : decdeg2dms(WWV_LAT),
             'wwvlon'    : decdeg2dms(WWV_LON),
+
             # Title Formatting
             'y'         : 1,
-            'pad'       : fontsize,
+            'pad'       : fontsize - 2,
             'fontsize'  : fontsize
         }
+        self.axcount = 0
 
         if self.loaded:
             if filt:
@@ -267,6 +269,8 @@ class Grape:
             # print("Grape " + self.date + " not loaded (no data) \n")
             pass
 
+    # Get Properties ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
     def getTFV(self):
         """
         Getter for Grape object's time, frequency and peak voltage values
@@ -299,6 +303,8 @@ class Grape:
             return np.array([self.t_range, self.f_range_filt, self.Vdb_range_filt])
         else:
             return np.array([None, None, None])
+
+    # Data Processing ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def butFilt(self, FILTERORDER: int = 3, FILTERBREAK: float = 0.005):
         """
@@ -345,23 +351,6 @@ class Grape:
         else:
             print('Time, frequency and Vpk not loaded!')
 
-    def valCh(self, valname: str):
-        label = 'None'
-
-        if valname in FNAMES:
-            vals = self.f_range
-            label = FLABEL
-        elif valname in VNAMES:
-            vals = self.Vpk
-            label = VLABEL
-        elif valname in PNAMES:
-            vals = self.Vdb_range
-            label = PLABEL
-        else:
-            vals = None
-
-        return vals, label
-
     def dnMedian(self):
         """
         Calculates the medians of the entire day's sunlight and sundown doppler shifts, seperately
@@ -402,6 +391,53 @@ class Grape:
             self.nightIQR = qt[2] - qt[0]
         else:
             print('No sundown detected (nightMed None)\n')
+
+    def count(self):
+        """
+        Employs collections.Counter to produce counts of individual values in grape value ranges
+
+        :return: discrete counts to grape object
+        """
+
+        from collections import Counter
+
+        if self.converted:
+            self.f_count = Counter(self.f_range)
+            self.Vpk_count = Counter(self.Vpk)
+            self.Vdb_count = Counter(self.Vdb_range)
+        else:
+            print('Data units not yet converted! \n'
+                  'Attempting unit conversion... \n'
+                  'Please try again.')
+            self.units()
+
+    # Utilities ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+    def valCh(self, valname: str):
+        """
+        Determines determines the requested value and label for the grape object
+        Args:
+            valname (str): The name of the value to check.
+        Returns:
+            tuple: A tuple containing the value (or None if not found) and the corresponding label.
+        """
+        label = 'None'
+
+        if valname in FNAMES:
+            vals = self.f_range
+            label = FLABEL
+        elif valname in VNAMES:
+            vals = self.Vpk
+            label = VLABEL
+        elif valname in PNAMES:
+            vals = self.Vdb_range
+            label = PLABEL
+        else:
+            vals = None
+
+        return vals, label
+
+    # Plot Elements ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def sunPosOver(self, fSize: int, end_times: bool = False, local: bool = False):
         """
@@ -452,24 +488,123 @@ class Grape:
                    fontsize=fSize,
                    loc='upper left')
 
-    def count(self):
-        """
-        Employs collections.Counter to produce counts of individual values in grape value ranges
+    def powerOver(self, ax1):
+        Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
+        fSize = self.plot_settings['fontsize']
+        labelpad = self.plot_settings['pad']
 
-        :return: discrete counts to grape object
-        """
+        alt_color = 'r'
 
-        from collections import Counter
-
-        if self.converted:
-            self.f_count = Counter(self.f_range)
-            self.Vpk_count = Counter(self.Vpk)
-            self.Vdb_count = Counter(self.Vdb_range)
+        if self.axcount > 0:
+            ax2 = ax1.twinx()
         else:
-            print('Data units not yet converted! \n'
-                  'Attempting unit conversion... \n'
-                  'Please try again.')
-            self.units()
+            ax2 = ax1
+
+        ax2.plot(self.t_range, Vdbrange, alt_color, linewidth=2)
+        ax2.set_ylabel(PLABEL, color=alt_color, fontsize=fSize)
+        ax2.set_ylim(-80, 0)
+        
+        if self.axcount >= 0:
+            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+            ax2.spines['right'].set_color(alt_color)
+        if self.axcount > 1:
+            additional_padding = 1 + 0.05 * self.axcount
+            ax2.spines['right'].set_position(('axes', additional_padding))
+        
+        self.axcount += 1
+
+        return ax2
+
+    def szaOver(self, ax1):
+        fSize = self.plot_settings['fontsize']
+        labelpad = self.plot_settings['pad']
+
+        alt_color = 'c'
+
+        if self.axcount > 0:
+            ax2 = ax1.twinx()
+        else:
+            ax2 = ax1
+
+        ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
+        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
+        ax2.set_ylim(0, 180)
+        
+        if self.axcount >= 0:
+            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+            ax2.spines['right'].set_color(alt_color)
+        if self.axcount > 1:
+            additional_padding = 1 + 0.05 * self.axcount
+            ax2.spines['right'].set_position(('axes', additional_padding))
+
+        self.axcount += 1
+
+        return ax2
+
+    def dopOver(self, ax1, **kwargs):
+        frange = self.f_range if not self.filtered else self.f_range_filt
+        fSize = self.plot_settings['fontsize']
+        labelpad = self.plot_settings['pad']
+        ylim = kwargs.get('ylim', [-1, 1])
+
+        alt_color = 'k'
+
+        if self.axcount > 0:
+            ax2 = ax1.twinx()
+        else:
+            ax2 = ax1
+
+        ax2.plot(self.t_range, frange, alt_color, linewidth=2)
+        ax2.set_ylabel(FLABEL, color=alt_color, fontsize=fSize)
+        ax2.set_ylim(ylim)
+
+        if self.axcount >= 0:
+            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+            ax2.spines['right'].set_color(alt_color)
+        if self.axcount > 1:
+            additional_padding = 1 + 0.05 * self.axcount
+            ax2.spines['right'].set_position(('axes', additional_padding))
+
+        self.axcount += 1
+
+        return ax2
+    
+    def timeAxis(self, ax1, **kwargs):
+        """
+        Sets the time axis for the plot
+
+        :param ax1: The axis to set the time axis for
+        :return: The axis with the time axis set
+        """
+
+        self.axcount = 0
+
+        fSize = self.plot_settings['fontsize']
+        labelpad = self.plot_settings['pad']
+
+        ax1.set_xlim(0, 24)
+
+        tmp = np.arange(0, 25, 2)
+        if kwargs.get('local', False):
+            # If time local to midpoint is requested
+            ax1.set_xlabel('Midpoint Local Time (Hours)', fontsize=fSize)
+
+            xrange = tmp + self.t_offset
+            for i, x in enumerate(xrange):
+                if x < 0:
+                    xrange[i] = x + 24
+        else:
+            # If local time is not requested (default UT)
+            ax1.set_xlabel('Time UT (Hours)', fontsize=fSize)
+
+            xrange = tmp
+
+        ax1.set_xticks(tmp, labels=xrange.astype(int))
+        ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax1.grid(axis='x', alpha=1)
+        ax1.grid(axis='y', alpha=0.5)
+
+        return ax1
 
     # Plots ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -489,82 +624,38 @@ class Grape:
 
         :return: .png plot into local repository
         """
-
-        if ylim is None:
-            if not (val == 'pwr'):
-                ylim = [-1, 1]
-            else:
-                ylim = [-80, 10]
-
+        # Checks if the data has been converted to the proper units
         if not self.converted:
             raise('Data units not yet converted! \n'
                   'Please try again.')
-
-        frange = self.f_range if not self.filtered else self.f_range_filt
-        Vdbrange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
         
-        fig = plt.figure(figsize=(19, 10))  # inches x, y with 72 dots per inch
+        # Initializes figure and axis
+        fig = plt.figure(figsize=(19, 10))
         ax1 = fig.add_subplot(111)
 
-        range = Vdbrange if val == 'pwr' else frange
-        label = PLABEL if val == 'pwr' else FLABEL
-        labelpad = 20
-        ax1.set_ylabel(label, fontsize=fSize)
-        ax1.set_ylim(ylim)
+        # Sets up time axis
+        self.timeAxis(ax1, **kwargs)
 
-        ax1.plot(self.t_range, range, 'k', linewidth=2)  # color k for black
-        ax1.set_xlim(0, 24)
+        # Toggles sun position overlay
+        spo = kwargs.get('SPO', False)
+        if spo: self.sunPosOver(fSize, end_times=end_times, local=local)
 
-        if kwargs.get('SPO', False):
-            self.sunPosOver(fSize, end_times=end_times, local=local)
+        # Toggles additional axis overlays
+        if kwargs.get('dop', False):
+            self.dopOver(ax1, ylim=ylim)
+        if kwargs.get('pwr', False):
+            self.powerOver(ax1)
+        if kwargs.get('sza', False):
+            self.szaOver(ax1)
 
-        tmp = np.arange(0, 25, 2)
-        if local:
-            # If time local to midpoint is requested
-            ax1.set_xlabel('Midpoint Local Time (Hours)', fontsize=fSize)
-
-            xrange = tmp + self.t_offset
-            for i, x in enumerate(xrange):
-                if x < 0:
-                    xrange[i] = x + 24
-        else:
-            # If local time is not requested (default UT)
-            ax1.set_xlabel('Time UT (Hours)', fontsize=fSize)
-
-            xrange = tmp
-
-        ax1.set_xticks(tmp, labels=xrange.astype(int))
-        ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)
-        ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
-        ax1.grid(axis='x', alpha=1)
-        ax1.grid(axis='y', alpha=0.5)
-
-        if axis2 == 'pwr':
-            alt_color = 'r'
-            ax2 = ax1.twinx()
-            ax2.plot(self.t_range, Vdbrange, alt_color, linewidth=2)  # NOTE: Set for filtered version
-            ax2.set_ylabel(PLABEL, color=alt_color, fontsize=fSize)
-            ax2.set_ylim(-80, 0)  # Try these as defaults to keep graphs similar.
-            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-            ax2.spines['right'].set_color(alt_color)
-
-        if axis2 == 'sza':
-            alt_color = 'c'
-            ax2 = ax1.twinx()
-            ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
-            ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
-            ax2.set_ylim(0, 180)
-            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
-            ax2.spines['right'].set_color(alt_color)
-
-        lbl_split = label.split(',')[0]
+        # Selects title for the plot
+        lbl_split = FLABEL
         figtitle(ax1, lbl_split, **self.plot_settings)
-        
+
+        # Saves the plot to the local repository
         if kwargs.get('save', True):
-            plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+            plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
             print(f'Plot saved to {figname}.png \n')
-        # plt.show()
-        # plt.close()
 
         return ax1
 
@@ -606,7 +697,7 @@ class Grape:
                 lbl_split = label.split(',')[0]
                 figtitle(ax1, lbl_split, **self.plot_settings)
                 
-                plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+                plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
                 plt.show()
                 plt.close()
             else:
@@ -695,7 +786,7 @@ class Grape:
                                       + self.date + ' UTC',
                                       fontsize='10')
 
-                            plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
+                            plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=300,
                                         orientation='landscape')
                             count += 1
 
@@ -732,7 +823,7 @@ class Grape:
                               + self.date + ' UTC',
                               fontsize=fSize)
 
-                    plt.savefig(str(figname) + '.png', dpi=250,
+                    plt.savefig(str(figname) + '.png', dpi=300,
                                 orientation='landscape')
                     plt.close()
 
@@ -795,7 +886,7 @@ class Grape:
                          # 'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                          + self.date + ' UTC',
                          fontsize=fSize)
-                pl.savefig(str(figname) + '.png', dpi=250,
+                pl.savefig(str(figname) + '.png', dpi=300,
                            orientation='landscape')
                 pl.show()
                 pl.close()
@@ -898,7 +989,7 @@ class Grape:
                                      + self.date + ' UTC',
                                      fontsize=fSize)
 
-                            pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=250,
+                            pl.savefig(str(dirname) + '/' + str(figname) + '_' + str(count) + '.png', dpi=300,
                                        orientation='landscape')
 
                             pl.close()
@@ -945,7 +1036,7 @@ class Grape:
 
                     pl.show()
 
-                    pl.savefig(str(figname) + '.png', dpi=250,
+                    pl.savefig(str(figname) + '.png', dpi=300,
                                orientation='landscape')
 
                     pl.close()
@@ -1066,7 +1157,7 @@ class Grape:
 
                 alt_color = 'r'
                 ax3 = ax1.twinx()
-                ax3.scatter(fitTimeRange, self.bestFits, color=alt_color)
+                ax3.scatter(fitTimeRange, self.bestFits, color=alt_color, linewidth=2)
                 ax3.set_ylabel('Best Fit PDF', color=alt_color, fontsize=fSize)
                 ax3.grid(axis='y', alpha=0.5)
                 ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
@@ -1075,7 +1166,7 @@ class Grape:
 
                 figtitle(ax1, 'Doppler Shift Distribution PDFs', **self.plot_settings)
 
-                plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+                plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
                 plt.show()
                 plt.close()
 
@@ -1137,30 +1228,9 @@ class Grape:
         figtitle(ax1, lbl_split, **self.plot_settings)
 
         styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
-        hour_range = np.arange(0, 24, 1)
 
         rt_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data/'
         files = os.listdir(rt_data_dir)
-        # for f in files:
-        #     df = pd.read_csv(rt_data_dir + f, header=None)
-
-        #     ax3 = ax1.twinx()
-
-        #     for i in range(0, df.shape[1]):
-        #         ax3.plot(hour_range, df[i], styles[i], linewidth=2)
-
-        #     plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize, loc='upper left')
-
-        #     file_label = f.split('_percentages')[0]
-        #     ax3.set_ylabel(f'% of Rays Recieved ({file_label})', fontsize=fSize)
-        #     ax3.set_ylim(0, 1)
-        #     ax3.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
-        #     ax3.spines['right'].set_position(('axes', 1.15))
-        #     ax3.spines['right'].set_color('gray')
-
-        #     plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
-
-        #     ax3.clear()
 
         alt_color = 'm'
         ax3 = ax1.twinx()
@@ -1171,6 +1241,7 @@ class Grape:
 
         for f in files:
             df = pd.read_csv(rt_data_dir + f, header=None)
+            hour_range = np.arange(0, df.shape[0], 1)
 
             lines = []
             for i in range(0, df.shape[1]):
@@ -1179,22 +1250,109 @@ class Grape:
 
             plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize, loc='upper left')
             file_label = f.split('_percentages')[0]
-            ax3.set_ylabel(f'% of Rays Recieved ({file_label})', color=alt_color, fontsize=fSize)
+            R12_number = file_label.split('_')[0]
+            mode = file_label.split('_')[1]
+            ax3.set_ylabel(f'% of Rays Recieved (R12 = {R12_number} / {mode}-mode)', color=alt_color, fontsize=fSize)
 
-            plt.savefig(str(figname) + "_" + file_label + '.png', dpi=250, orientation='landscape')
+            plt.savefig(str(figname) + "_" + file_label + '.png', dpi=300, orientation='landscape')
 
             for l in lines:
                 l[0].remove()
 
         plt.close()
 
+    def rtBouncePlot(self, figname, ylim=None, fSize=22):
+        """
+        Plot the reflection point of the raytraced rays over time
 
+        :param fSize: Font size to scale all plot text (default = 22)
+        :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
+         for the data (default = [-1, 1])
+        :param figname: Filename for the produced .png plot image
+        :return: .png plot into local repository
+        """
+
+        if ylim is None:
+            ylim = [0, 400]
+
+        if not self.converted:
+            raise('Data units not yet converted! \n'
+                  'Please try again.')
+
+        fig = plt.figure(figsize=(19, 10), layout='constrained')  # inches x, y with 72 dots per inch
+
+        ax1 = fig.add_subplot(111)
+
+        styles = ['y-', 'g-', 'b-', 'r-', 'y--', 'g--', 'b--', 'r--']
+
+        maxheight_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data_max_heights_57_O/'
+        initialelev_data_dir = 'C:/Users/sabas/Documents/GitHub/PHARvis/export_data_initial_elevs_57_O/'
+
+        maxheight_files = os.listdir(maxheight_data_dir)
+        initialelev_files = os.listdir(initialelev_data_dir)
+
+        nfiles = len(maxheight_files)
+
+        styles = ['yo', 'go', 'bo', 'ro']
+        
+        p1 = ax1.plot(0,0,styles[0],markersize=10)
+        p2 = ax1.plot(0,0,styles[1],markersize=10)
+        p3 = ax1.plot(0,0,styles[2],markersize=10)
+        p4 = ax1.plot(0,0,styles[3],markersize=10)
+        plt.legend(["1-hop", "2-hop", "3-hop", "4-hop"], fontsize=fSize, loc='upper left')
+        p1[0].remove()
+        p2[0].remove()
+        p3[0].remove()
+        p4[0].remove()
+
+        for i, f_i in enumerate(range(0, nfiles)):  # Per hop
+            mh_df = pd.read_csv(maxheight_data_dir + maxheight_files[f_i], header=None)
+            ie_df = pd.read_csv(initialelev_data_dir + initialelev_files[f_i], header=None)
+            
+            hour_range = np.arange(0, mh_df.shape[0], 1)
+            max_elev = 50
+            scale = 50
+            for hour in hour_range:
+                for k in range(0, mh_df.shape[1]):
+                    if mh_df[k][hour] > 0:
+                        ie_scale = ((ie_df[k][hour] + 1) / max_elev) * scale
+                        ax1.plot(hour, mh_df[k][hour], styles[i], markersize=ie_scale)
+
+        f = maxheight_files[0]
+        file_label = f.split('max_heights_')[1]
+        R12_number = file_label.split('_')[0]
+        mode = file_label.split('_')[1][0]
+        ax1.set_ylabel(f'Reflection Altitude (km) (R12 = {R12_number} / {mode}-mode)', fontsize=fSize)
+
+        ax1.set_xlabel('Time UT (Hours)', fontsize=fSize)
+        ax1.set_xlim(0, 24)  # UTC day
+        ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        tmp = np.arange(0, 25, 2)
+        ax1.set_xticks(tmp, labels=tmp.astype(int))
+        labelpad = 20
+        ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.grid(axis='x', alpha=1)
+        ax1.grid(axis='y', alpha=0.5)
+
+        alt_color = 'c'
+        ax2 = ax1.twinx()
+        ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
+        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
+        ax2.set_ylim(0, 180)
+        ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax2.spines['right'].set_color(alt_color)
+
+        figtitle(ax1, 'Reflection Point', **self.plot_settings)
+        
+        plt.savefig(str(figname) + "_" + file_label.split('.csv')[0] + '.png', dpi=300, orientation='landscape')
+        plt.close()
 
 class GrapeHandler:
 
     # Util ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    def __init__(self, dirnames, filt=False, comb=True, med=False, tShift=True, n=1):
+    def __init__(self, dirnames, filt=False, comb=True, med=False, tShift=True, n=1, **kwargs):
         """
         Dynamically creates and manipulates multiple instances of the Grape object using a specified data directory
 
@@ -1326,7 +1484,7 @@ class GrapeHandler:
                   'Lat=40.40.742018  Long=-74.178975 Elev=50M \n'
                   + self.month + ' UTC',
                   fontsize='10')
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
         plt.close()
 
     def multGrapeDistPlots(self, dirname, figname, minBinLen=5):
@@ -1396,7 +1554,7 @@ class GrapeHandler:
                           + self.month + ' UTC',
                           fontsize='10')
 
-                plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=250,
+                plt.savefig(str(dirname) + '/' + str(figname) + str(count) + '.png', dpi=300,
                             orientation='landscape')
                 count += 1
 
@@ -1470,18 +1628,28 @@ class GrapeHandler:
         for i in range(0, 5):
             ax1.plot(t_range, qts[i], qstyle[i][0], alpha=qstyle[i][1], linewidth=2)
 
-        self.grapes[0].sunPosOver(fSize)
+        grape0 = self.grapes[0]
+        # self.grapes[0].sunPosOver(fSize)
+
+        labelpad = 20
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
         ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
         ax1.set_xlim(0, 24)  # UTC day
         ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
         ax1.set_xticks(np.arange(0, 25, 2))
-        ax1.tick_params(axis='x', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-        ax1.tick_params(axis='y', labelsize=20)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
-        # ax1.legend(['25th Q', '40th Q', 'Median', '60th Q', '75th Q'], fontsize=fSize)
+
+        alt_color = 'c'
+        ax2 = ax1.twinx()
+        ax2.plot(grape0.t_range, grape0.zentrace, alt_color, linewidth=2)
+        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
+        ax2.set_ylim(0, 180)
+        ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax2.spines['right'].set_color(alt_color)
 
         plt.title('WWV 10 MHz Doppler Shift Plot (Q 25, 40, 50, 60, 75) \n'  # Title (top)
                   + '[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
@@ -1491,7 +1659,7 @@ class GrapeHandler:
                   '# of Grapes: ' + str(len(self.grapes)) + ' || '
                   + self.month,
                   fontsize=fSize)
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
         plt.close()
 
     def spreadTrend(self, figname, minBinLen=5, fSize=22, ylim=(0, 1.2)):
@@ -1579,7 +1747,7 @@ class GrapeHandler:
                       + '# of Grapes: ' + str(len(self.grapes)) + ' || '
                       + myLabels[count][0] + '-' + myLabels[count][1],
                       fontsize=fSize)
-            plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+            plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
             plt.close()
             count += 1
 
@@ -1688,7 +1856,7 @@ class GrapeHandler:
                   'Sun Up / Sun Down Times Relative to Midpoint %s %s'
                   % (decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon)),  # Title (top)
                   fontsize=22)
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
 
         plt.show()
         plt.close()
@@ -1735,7 +1903,7 @@ class GrapeHandler:
 
         plt.title('WWV 10 MHz Doppler Shift Median Trend \n',  # Title (top)
                   fontsize=22)
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
         plt.close()
 
     def yearDopPlot(self, figname, fSize=22):
@@ -1847,10 +2015,69 @@ class GrapeHandler:
         plt.title('%i WWV 10 MHz Doppler Shift Trend at Midpoint %s, %s' %  # Title (top)
                   (startyear, decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon)),
                   fontsize=fSize)
-        plt.savefig('%s.png' % figname, dpi=250, orientation='landscape')
+        plt.savefig('%s.png' % figname, dpi=300, orientation='landscape')
         plt.close()
 
     def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None, **kwargs):
+
+        if ylim is None:
+            ylim = ydoplims(self.valscomb, 'f')
+
+        labelpad = 20
+
+        fig = plt.figure(figsize=(19, 10), layout='tight')  # inches x, y with 72 dots per inch
+        ax1 = fig.add_subplot(111)
+
+        grape0 = self.grapes[0]
+        # grape0.sunPosOver(fSize)
+
+        for i in range(len(self.grapes)):
+            frange = self.valscomb[i]
+            trange = self.timecomb[i]
+
+            if i == len(self.grapes) - 1:
+                ax1.plot(trange, frange, 'r', linewidth=2)
+            else:
+                ax1.plot(trange, frange, 'k', linewidth=2, alpha=i / len(self.grapes))
+
+        ax1.set_xlabel('UTC Hour', fontsize=fSize)
+        ax1.set_ylabel(FLABEL, fontsize=fSize)
+        ax1.set_xlim(0, 24)  # UTC day
+        ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
+        ax1.set_xticks(np.arange(0, 25, 2))
+        ax1.tick_params(axis='x', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.tick_params(axis='y', labelsize=20)  # plt.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
+        ax1.grid(axis='x', alpha=1)
+        ax1.grid(axis='y', alpha=0.5)
+
+        cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'), pad = 0.08)
+        tick_labels = kwargs.get('tl',
+                                 ['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        cbar.ax.set_yticklabels(tick_labels)
+        cbar.ax.tick_params(labelsize=fSize - 2)
+        cbar.ax.set_ylabel('Date of Trace', fontsize=fSize)
+
+        alt_color = 'c'
+        ax2 = ax1.twinx()
+        ax2.plot(grape0.t_range, grape0.zentrace, alt_color, linewidth=2)
+        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
+        ax2.set_ylim(0, 180)
+        ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax2.spines['right'].set_color(alt_color)
+
+        plt.suptitle('Doppler Residual Traces (' + grape0.date + ' - ' + self.grapes[-1].date + ')',
+                     fontsize=fSize + 10, ha='center', weight='bold', x=0.45)  # Title (top)
+        plt.title('[K2MFF %s %s | Midpoint %s %s | WWV %s %s] \n'
+                  % (decdeg2dms(grape0.lat), decdeg2dms(grape0.lon),
+                     decdeg2dms(grape0.blat), decdeg2dms(grape0.blon),
+                     decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)),
+                  fontsize=fSize, ha='center')
+
+        plt.tight_layout()
+        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
+        plt.close()
+
+    def dopPlotOver_copy(self, figname='dopPlotOver', fSize=22, ylim=None, **kwargs):
 
         if ylim is None:
             ylim = ydoplims(self.valscomb, 'f')
@@ -1903,7 +2130,7 @@ class GrapeHandler:
                   fontsize=fSize, ha='center')
 
         plt.tight_layout()
-        plt.savefig(str(figname) + '.png', dpi=250, orientation='landscape')
+        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
         plt.close()
 
 

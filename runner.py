@@ -4,14 +4,19 @@ NJ_DATA_PATH = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/NJ_data'
 K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
 
-def eclipse_grapehandler():
-    g = grape.GrapeHandler(['DATA/tot_eclipse_24'], filt=True, comb=False, med=False, tShift=False, n=1)
-    grape.pickle_grape(g, filename='DATA/tot_ecl_24_test')
+def eclipse_grapehandler(data_in: str='DATA/tot_eclipse_24', pickle: str='DATA/tot_ecl_24_test', 
+                         plot_out: str='tot_ecl_24_edit', gen: bool=False):
 
-    g = grape.unpickle_grape('tot_ecl_24_test.pkl')
+    if gen:
+        g = grape.GrapeHandler([data_in], filt=True, comb=True, med=False, tShift=False, n=1)
+        grape.pickle_grape(g, filename=pickle)
 
-    tl = ['', 'Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
-    g.dopPlotOver(figname='tot_ecl_24_edit', tl=tl, ylim=[-1.3, 1.5])
+    g = grape.unpickle_grape(pickle + '.pkl')
+
+    # tl = ['', 'Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
+    # g.dopPlotOver(figname=plot_out, tl=tl, ylim=[-1.3, 1.5])
+
+    g.dopPlotOver(figname=plot_out, ylim=[-1.5, 2.0])
 
 
 def doppowplots():
@@ -85,4 +90,12 @@ def solarzenith():
 if __name__ == '__main__':
 
     # best_fits(2021, 7, 1, mbl=30)
-    eclipse_grapehandler()
+    eclipse_grapehandler(gen=False)
+
+    data_in = 'DATA/ann_ecl_23'
+    pickle = 'DATA/ann_ecl_23_test'
+    plot_out = 'ann_ecl_23_plot'
+    gen = False
+
+    eclipse_grapehandler(data_in, pickle, plot_out,
+                         gen)
