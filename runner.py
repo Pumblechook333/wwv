@@ -65,7 +65,7 @@ def best_fits(year: int, month: int, day: int, **kwargs):
     # %%
     # Create Plot
     g.bestFitsPlot(valname, figname,
-                   minBinLen=minBinLen,
+                   mbl=minBinLen,
                    ylim=ylim,
                    fSize=fSize)
 

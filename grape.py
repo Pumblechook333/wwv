@@ -121,6 +121,7 @@ class Grape:
         self.Vpk_count = None
         self.Vdb_count = None
 
+        self.fitTimeRange = None
         self.bestFits = None
         self.dayMed = None
         self.nightMed = None
@@ -545,7 +546,22 @@ class Grape:
         frange = self.f_range if not self.filtered else self.f_range_filt
         fSize = self.plot_settings['fontsize']
         labelpad = self.plot_settings['pad']
-        ylim = kwargs.get('ylim', [-1, 1])
+        ylim = kwargs.get('ylim', None)
+
+        # Sets y range of plot
+        if ylim is None:
+            # truncates maximum and minimum values
+            bottom = round_down(frange.min(), 1)
+            top = round_up(frange.max(), 1)
+
+            # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
+            if bottom > -2:
+                bottom = -1 if (bottom > -1) else (
+                    -1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
+            if top < 2:
+                top = 1 if (top < 1) else (1.2 if (top < 1.2) else (1.5 if (top < 1.5) else 2))
+
+            ylim = [bottom, top]
 
         alt_color = 'k'
 
@@ -569,6 +585,31 @@ class Grape:
 
         return ax2
     
+    def bfOver(self, ax1, **kwargs):
+        fSize = self.plot_settings['fontsize']
+        labelpad = self.plot_settings['pad']
+
+        alt_color = 'r'
+
+        if self.axcount > 0:
+            ax2 = ax1.twinx()
+        else:
+            ax2 = ax1
+
+        ax2.scatter(self.fitTimeRange, self.bestFits, color=alt_color, linewidth=2)
+        ax2.set_ylabel('Best Fit PDF', color=alt_color, fontsize=fSize)
+
+        if self.axcount >= 0:
+            ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
+            ax2.spines['right'].set_color(alt_color)
+        if self.axcount > 1:
+            additional_padding = 1 + 0.05 * self.axcount
+            ax2.spines['right'].set_position(('axes', additional_padding))
+
+        self.axcount += 1
+
+        return ax2
+
     def timeAxis(self, ax1, **kwargs):
         """
         Sets the time axis for the plot
@@ -654,7 +695,7 @@ class Grape:
 
         # Saves the plot to the local repository
         if kwargs.get('save', True):
-            plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
+            plt.savefig(str(figname) + '.png', bbox_inches='tight', dpi=300, orientation='landscape')
             print(f'Plot saved to {figname}.png \n')
 
         return ax1
@@ -1049,7 +1090,7 @@ class Grape:
                   'Please try again.')
             self.units()
  
-    def bestFitsPlot(self, valname, figname, minBinLen=5, ylim=None, fSize=22):
+    def bestFitsPlot(self, valname, figname, mbl=5, ylim=None, fSize=22, **kwargs):
         """
         Over-plots the best fits resolved for each specified time bin with the doppler shift data for the day
 
@@ -1062,6 +1103,8 @@ class Grape:
         :return: .png plot into local repository
         """
 
+        # Checks if the data has been converted to the proper units
+        # and selects specified value for fitting
         if self.converted:
             if valname in FNAMES:
                 vals = self.f_range
@@ -1070,113 +1113,77 @@ class Grape:
             elif valname in PNAMES:
                 vals = self.Vdb_range
             else:
-                vals = None
-
-            if vals is not None:
-
-                # Make subsections and begin plot generation
-                subranges = []  # contains equally sized ranges of data
-
-                secrange, minrange = mblHandle(minBinLen)
-
-                index = 0
-                while not index > len(vals):
-                    subranges.append(vals[index:index + secrange])
-                    index += secrange
-
-                hours = []  # contains 24 hour chunks of data
-
-                index = 0
-                while not index > len(subranges):
-                    hours.append(subranges[index:index + minrange])
-                    index += minrange
-
-                self.bestFits = []
-
-                indexhr = 0
-                # for hour in hours:
-                print('\nResolving Hours:\n')
-                for hour in tqdm(hours):
-                    index = 0
-                    for srange in hour:
-                        binlims = np.arange(-2.5, 2.6, 0.1)
-
-                        f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
-                        f.fit()
-                        self.bestFits.append(f.get_best())
-
-                        index += 1
-
-                    indexhr += 1
-
-                frange = self.f_range if not self.filtered else self.f_range_filt
-                prange = self.Vdb_range if not self.filtered else self.Vdb_range_filt
-
-                yrange = frange if (valname in FNAMES) else prange
-
-                # Sets y range of plot
-                if ylim is None:
-                    # truncates maximum and minimum values
-                    bottom = round_down(yrange.min(), 1)
-                    top = round_up(yrange.max(), 1)
-
-                    # snapping to +- 1, 1.2, 1.5 or 2 for doppler vals
-                    if valname in FNAMES:
-                        if bottom > -2:
-                            bottom = -1 if (bottom > -1) else (
-                                -1.2 if (bottom > -1.2) else (-1.5 if (bottom > -1.5) else -2))
-                        if top < 2:
-                            top = 1 if (top < 1) else (1.2 if (top < 1.2) else (1.5 if (top < 1.5) else 2))
-
-                    ylim = [bottom, top]
-
-                fig = plt.figure(figsize=(19, 10), layout='constrained')  # inches x, y with 72 dots per inch
-                ax1 = fig.add_subplot(111)
-                ax1.plot(self.t_range, yrange, color='k')  # color k for black
-                ax1.set_xlabel('UTC Hour', fontsize=fSize)
-                ax1.set_ylabel('Doppler shift, Hz', fontsize=fSize)
-                ax1.set_xlim(0, 24)  # UTC day
-                ax1.set_xticks(np.arange(0, 25, 2))
-                ax1.set_ylim(ylim)  # -1 to 1 Hz for Doppler shift
-                ax1.grid(axis='x', alpha=1)
-                labelpad = 20
-                ax1.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)  # ax1.set_xlim([-2.5, 2.5])  # 0.1Hz Bins (-2.5Hz to +2.5Hz)
-                ax1.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
-
-                rng = np.arange(0, len(self.bestFits))
-                fitTimeRange = (rng / len(self.bestFits)) * 24
-                self.bestFits = [list(i.keys())[0] for i in self.bestFits]
-
-                alt_color = 'c'
-                ax2 = ax1.twinx()
-                ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
-                ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
-                ax2.set_ylim(0, 180)
-                ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
-                ax2.spines['right'].set_color(alt_color)
-
-                alt_color = 'r'
-                ax3 = ax1.twinx()
-                ax3.scatter(fitTimeRange, self.bestFits, color=alt_color, linewidth=2)
-                ax3.set_ylabel('Best Fit PDF', color=alt_color, fontsize=fSize)
-                ax3.grid(axis='y', alpha=0.5)
-                ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
-                ax3.spines['right'].set_position(('axes', 1.15))
-                ax3.spines['right'].set_color(alt_color)
-
-                figtitle(ax1, 'Doppler Shift Distribution PDFs', **self.plot_settings)
-
-                plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
-                plt.show()
-                plt.close()
-
-            else:
-                print("Please provide a valid valname!")
+                raise('Please provide a valid valname!')
         else:
             print('Data units not yet converted! \n'
                   'Attempting unit conversion... \n'
                   'Please try again.')
             self.units()
+
+        # Make subsections based on mbl
+        subranges = []  # contains equally sized ranges of data
+        secrange, minrange = mblHandle(mbl)
+
+        # Splits up data into minute bins for fitter
+        index = 0
+        while not index > len(vals):
+            subranges.append(vals[index:index + secrange])
+            index += secrange
+
+        # Groups minute bins into appropriate hour bins
+        hours = []  # contains 24 hour chunks of data
+        index = 0
+        while not index > len(subranges):
+            hours.append(subranges[index:index + minrange])
+            index += minrange
+
+        # Calculates the best fits for each minute bin in each hour
+        self.bestFits = []
+        indexhr = 0
+        print('\nResolving Hours:\n')
+        for hour in tqdm(hours):
+            index = 0
+            for srange in hour:
+                binlims = np.arange(-2.5, 2.6, 0.1)
+
+                f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
+                f.fit()
+                self.bestFits.append(f.get_best())
+
+                index += 1
+
+            indexhr += 1
+
+        # Creates new time range dependent on mbl
+        rng = np.arange(0, len(self.bestFits))
+        self.fitTimeRange = (rng / len(self.bestFits)) * 24
+        self.bestFits = [list(i.keys())[0] for i in self.bestFits]
+
+        # Initializes figure and axis
+        fig = plt.figure(figsize=(19, 10))
+        ax1 = fig.add_subplot(111)
+
+        # Sets up time axis
+        self.timeAxis(ax1, **kwargs)
+
+        # Toggles additional axis overlays
+        if kwargs.get('dop', False):
+            self.dopOver(ax1, ylim=ylim)
+        if kwargs.get('sza', False):
+            self.szaOver(ax1)
+        
+        # Plots best fit markers
+        self.bfOver(ax1)
+
+        figtitle(ax1, 'Doppler Shift Distribution PDFs', **self.plot_settings)
+
+        # Saves the plot to the local repository
+        if kwargs.get('save', True):
+            plt.savefig(str(figname) + '.png', bbox_inches='tight', dpi=300, orientation='landscape')
+            print(f'Plot saved to {figname}.png \n')
+
+        return ax1
+
 
     def dopRtPlot(self, figname, ylim=None, fSize=22):
         """
