@@ -9,6 +9,7 @@ from re import sub
 
 years = [i for i in range(2019, 2024)]
 years = [str(i) for i in years]
+years = ['2021']
 
 for year in years:
     with z.ZipFile('D:/Sabastian/Perry_Lab/GrapeV1Data_8-23/' + year + '.zip', 'r') as zip:

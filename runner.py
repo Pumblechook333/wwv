@@ -5,7 +5,11 @@ K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
 
 def eclipse_grapehandler(data_in: str='DATA/tot_eclipse_24', pickle: str='DATA/tot_ecl_24_test', 
-                         plot_out: str='tot_ecl_24_edit', gen: bool=False):
+                         plot_out: str='tot_ecl_24_edit', gen: bool=False, tl: list=None, ylim: list=None):
+    if not tl:
+        tl = ['', 'Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
+    if not ylim:
+        ylim = [-1.5, 2.0]
 
     if gen:
         g = grape.GrapeHandler([data_in], filt=True, comb=True, med=False, tShift=False, n=1)
@@ -13,10 +17,7 @@ def eclipse_grapehandler(data_in: str='DATA/tot_eclipse_24', pickle: str='DATA/t
 
     g = grape.unpickle_grape(pickle + '.pkl')
 
-    # tl = ['', 'Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
-    # g.dopPlotOver(figname=plot_out, tl=tl, ylim=[-1.3, 1.5])
-
-    g.dopPlotOver(figname=plot_out, ylim=[-1.5, 2.0])
+    g.dopPlotOver(figname=plot_out, tl=tl, ylim=ylim)
 
 
 def doppowplots():
@@ -90,12 +91,15 @@ def solarzenith():
 if __name__ == '__main__':
 
     # best_fits(2021, 7, 1, mbl=30)
-    eclipse_grapehandler(gen=False)
+    # eclipse_grapehandler(gen=False)
 
-    data_in = 'DATA/ann_ecl_23'
-    pickle = 'DATA/ann_ecl_23_test'
-    plot_out = 'ann_ecl_23_plot'
+    tl = ['', '', '', '', '', '', '', 'Oct 13', 'Oct 14']
+
+    ylim  = [-1.5, 2.0]
+    data_in = 'DATA/ann_ecl_23_ma'
+    pickle = 'PICKLES/ann_ecl_23_ma'
+    plot_out = 'ann_ecl_23_ma_plot'
     gen = False
 
     eclipse_grapehandler(data_in, pickle, plot_out,
-                         gen)
+                         gen, tl=tl, ylim=ylim)

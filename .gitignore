@@ -4,3 +4,6 @@
 /DATA
 /PICKLES
 /SCRIPTS/nodemap
+/SCRIPTS/refmap/export
+/SCRIPTS/refmap/export_old
+*.mp4
