@@ -5,7 +5,8 @@ K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
 
 def eclipse_grapehandler(data_in: str='DATA/tot_eclipse_24', pickle: str='DATA/tot_ecl_24_test', 
-                         plot_out: str='tot_ecl_24_edit', gen: bool=False, tl: list=None, ylim: list=None):
+                         plot_out: str='tot_ecl_24_edit', gen: bool=False, tl: list=None, ylim: list=None,
+                         tgt: int=0):
     if not tl:
         tl = ['', 'Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
     if not ylim:
@@ -17,7 +18,9 @@ def eclipse_grapehandler(data_in: str='DATA/tot_eclipse_24', pickle: str='DATA/t
 
     g = grape.unpickle_grape(pickle + '.pkl')
 
-    g.dopPlotOver(figname=plot_out, tl=tl, ylim=ylim)
+    g.dopPlotOver(figname=plot_out, tl=tl, ylim=ylim, 
+                #   tgt=tgt
+                  )
 
 
 def doppowplots():
@@ -93,12 +96,18 @@ if __name__ == '__main__':
     # best_fits(2021, 7, 1, mbl=30)
     # eclipse_grapehandler(gen=False)
 
-    tl = ['', '', '', '', '', '', '', 'Oct 13', 'Oct 14']
+    # tl = ['Oct 5', 'Oct 7', 'Oct 8', 'Oct 14', 'Oct 15', 'Oct 23', 'Oct 28']
+    # tl = ['', 'Sep 13', 'Sep 14', 'Oct 1', 'Oct 5', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 14']
+    tl = ['Apr 1', 'Apr 2', 'Apr 3', 'Apr 4', 'Apr 5', 'Apr 6', 'Apr 7', 'Apr 8']
 
     ylim  = [-1.5, 2.0]
-    data_in = 'DATA/ann_ecl_23_ma'
-    pickle = 'PICKLES/ann_ecl_23_ma'
-    plot_out = 'ann_ecl_23_ma_plot'
+
+    # event = 'ecl_23_N36'
+    event = 'ecl_24_N36'
+
+    data_in = f'DATA/{event}/'
+    pickle = f'PICKLES/{event}'
+    plot_out = event
     gen = False
 
     eclipse_grapehandler(data_in, pickle, plot_out,

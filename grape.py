@@ -2046,17 +2046,21 @@ class GrapeHandler:
         fig = plt.figure(figsize=(19, 10), layout='tight')  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
 
-        grape0 = self.grapes[0]
-        # grape0.sunPosOver(fSize)
+        for g in self.grapes:
+            if (g.t_range.min() < 1) and (g.t_range.max() > 23):
+                grape0 = g
+                break
+
+        tgt = kwargs.get('tgt', len(self.grapes)-1)
 
         for i in range(len(self.grapes)):
             frange = self.valscomb[i]
             trange = self.timecomb[i]
 
-            if i == len(self.grapes) - 1:
+            if i == tgt:
                 ax1.plot(trange, frange, 'r', linewidth=2)
             else:
-                ax1.plot(trange, frange, 'k', linewidth=2, alpha=(i / len(self.grapes) + 0.1))
+                ax1.plot(trange, frange, 'k', linewidth=2, alpha=( (abs(i - tgt) / len(self.grapes)) + 0.1))
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
         ax1.set_ylabel(FLABEL, fontsize=fSize)
@@ -2068,12 +2072,25 @@ class GrapeHandler:
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
 
-        cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'), pad = 0.08)
         tick_labels = kwargs.get('tl',
-                                 ['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+                    ['Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        step = 2 / (len(tick_labels))
+        if tgt == len(self.grapes)-1:
+            cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'), pad = 0.08)
+            ticks = np.arange(-1 + step, 1 + step, step)
+        else:
+            cmap = create_centered_black_white_cmap()
+            cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap=cmap), pad = 0.08)
+            ticks = np.arange(-1 + step, 1 + step, step) - (step / 2)
+        
+        cbar.ax.set_yticks(ticks) 
         cbar.ax.set_yticklabels(tick_labels)
         cbar.ax.tick_params(labelsize=fSize - 2)
         cbar.ax.set_ylabel('Date of Trace', fontsize=fSize)
+
+        ticklabs = cbar.ax.get_yticklabels()
+        ticklabs[tgt].set_weight("bold")
+        ticklabs[tgt].set_color("red")
 
         alt_color = 'c'
         ax2 = ax1.twinx()
@@ -2521,3 +2538,24 @@ def figtitle(ax, plottype: str, **kwargs):
     ax.set_title(tstring, y=y, pad=pad, fontsize=fontsize)
 
     return tstring
+
+def create_centered_black_white_cmap():
+    """
+    Creates a colormap with black in the center and white at the ends.
+
+    Returns:
+        A matplotlib.colors.LinearSegmentedColormap object.
+    """
+
+    cdict = {
+        'red':   [(0.0, 1.0, 1.0),  # White at 0.0
+                (0.5, 0.0, 0.0),  # Black at 0.5
+                (1.0, 1.0, 1.0)], # White at 1.0
+        'green': [(0.0, 1.0, 1.0),
+                (0.5, 0.0, 0.0),
+                (1.0, 1.0, 1.0)],
+        'blue':  [(0.0, 1.0, 1.0),
+                (0.5, 0.0, 0.0),
+                (1.0, 1.0, 1.0)]
+    }
+    return colors.LinearSegmentedColormap('black_white', cdict)

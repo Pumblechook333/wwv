@@ -14,7 +14,7 @@ for year in years:
 
     print(f'{year}: \n')
 
-    zippath = 'D:/Sabastian/Perry_Lab/GrapeV1Data_8-23'
+    zippath = 'E:/Sabastian/Perry_Lab/GrapeV1Data'
     zipname = f'{year}.zip'
     archive = zipfile.ZipFile(f'{zippath}/{zipname}', 'r')
 
