@@ -255,7 +255,7 @@ if __name__ == "__main__":
 
         ax = plt.gca()
         form_hr = "{:02d}".format(hour)
-        figtitle(ax, f"| {form_hr}:00Z | Lateral Reflection Site Monitoring", **title_kwargs)
+        figtitle(ax, f"| {form_hr}:00 UTC | Lateral Reflection Site Monitoring", **title_kwargs)
 
         save = True
         show = False

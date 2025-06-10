@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 import suncalc
 import pandas as pd
 from pvlib import solarposition
+from scipy.signal import filtfilt, butter
 
 import pickle
 from tqdm import tqdm
@@ -52,7 +53,7 @@ MONTHINDEX = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365)
 WWV_LAT = 40.67583063
 WWV_LON = -105.038933178
 
-NJ_DATA_PATH = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/NJ_data'
+NJ_DATA_PATH = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/bulk_beacon_data/NJ_data'
 MATLAB_EXPORTS = 'C:/Users/sabas/Documents/GitHub/PHARvis/EXPORT/'
 K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
@@ -322,8 +323,6 @@ class Grape:
         :return: data filtered by butterworth filter to grape object
         """
 
-        from scipy.signal import filtfilt, butter
-
         if self.loaded:
             # noinspection PyTupleAssignmentBalance
             b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
@@ -521,7 +520,7 @@ class Grape:
 
         return ax2
 
-    def szaOver(self, ax1):
+    def szaOver(self, ax1, axcount=0, axhline=None):
         fSize = self.plot_settings['fontsize']
         labelpad = self.plot_settings['pad']
 
@@ -530,11 +529,17 @@ class Grape:
         if self.axcount > 0:
             ax2 = ax1.twinx()
         else:
-            ax2 = ax1
+            if axcount > 0:
+                ax2 = ax1.twinx()
+            else:
+                ax2 = ax1
 
         ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
         ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
         ax2.set_ylim(0, 180)
+
+        if axhline:
+            ax2.axhline(axhline, color='m', linestyle='--', linewidth=1.5)
         
         if self.axcount >= 0:
             ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
@@ -692,7 +697,8 @@ class Grape:
         if kwargs.get('pwr', False):
             self.powerOver(ax1)
         if kwargs.get('sza', False):
-            self.szaOver(ax1)
+            axhline = kwargs.get('axhline', None)
+            self.szaOver(ax1, axhline=axhline)
 
         # Selects title for the plot
         lbl_split = FLABEL
@@ -1145,12 +1151,12 @@ class Grape:
         # Calculates the best fits for each minute bin in each hour
         self.bestFits = []
         indexhr = 0
+        binlims = np.arange(-2.5, 2.6, 0.1)
         print('\nResolving Hours:\n')
         for hour in tqdm(hours):
             index = 0
             for srange in hour:
-                binlims = np.arange(-2.5, 2.6, 0.1)
-
+                
                 f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                 f.fit()
                 self.bestFits.append(f.get_best())
@@ -1172,9 +1178,9 @@ class Grape:
         self.timeAxis(ax1, **kwargs)
 
         # Toggles additional axis overlays
-        if kwargs.get('dop', False):
+        if kwargs.get('dop', True):
             self.dopOver(ax1, ylim=ylim)
-        if kwargs.get('sza', False):
+        if kwargs.get('sza', True):
             self.szaOver(ax1)
         
         # Plots best fit markers
@@ -2041,8 +2047,6 @@ class GrapeHandler:
         if ylim is None:
             ylim = ydoplims(self.valscomb, 'f')
 
-        labelpad = 20
-
         fig = plt.figure(figsize=(19, 10), layout='tight')  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
 
@@ -2060,7 +2064,9 @@ class GrapeHandler:
             if i == tgt:
                 ax1.plot(trange, frange, 'r', linewidth=2)
             else:
-                ax1.plot(trange, frange, 'k', linewidth=2, alpha=( (abs(i - tgt) / len(self.grapes)) + 0.1))
+                prox = abs(i - tgt) / len(self.grapes)  # Smaller value when close to target
+                prox_compliment = 1 - prox              # Larger value when close to target
+                ax1.plot(trange, frange, 'k', linewidth=2, alpha=(prox_compliment))
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
         ax1.set_ylabel(FLABEL, fontsize=fSize)
@@ -2079,7 +2085,8 @@ class GrapeHandler:
             cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'), pad = 0.08)
             ticks = np.arange(-1 + step, 1 + step, step)
         else:
-            cmap = create_centered_black_white_cmap()
+            center_val = ((tgt) / len(tick_labels))
+            cmap = create_centered_black_white_cmap(center_val)
             cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap=cmap), pad = 0.08)
             ticks = np.arange(-1 + step, 1 + step, step) - (step / 2)
         
@@ -2092,13 +2099,8 @@ class GrapeHandler:
         ticklabs[tgt].set_weight("bold")
         ticklabs[tgt].set_color("red")
 
-        alt_color = 'c'
-        ax2 = ax1.twinx()
-        ax2.plot(grape0.t_range, grape0.zentrace, alt_color, linewidth=2)
-        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
-        ax2.set_ylim(0, 180)
-        ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
-        ax2.spines['right'].set_color(alt_color)
+        if kwargs.get('sza', False):
+            grape0.szaOver(ax1, axcount=1)
 
         plt.suptitle('Doppler Residual Traces (' + grape0.date + ' - ' + self.grapes[-1].date + ')',
                      fontsize=fSize + 10, ha='center', weight='bold', x=0.45)  # Title (top)
@@ -2109,9 +2111,12 @@ class GrapeHandler:
                      decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)),
                   fontsize=fSize, ha='center')
 
+        figname = figname.split('/')[-1]
         plt.tight_layout()
         plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
-        plt.close()
+        # plt.close()
+
+        return ax1
 
     def dopPlotOver_copy(self, figname='dopPlotOver', fSize=22, ylim=None, **kwargs):
 
@@ -2539,7 +2544,7 @@ def figtitle(ax, plottype: str, **kwargs):
 
     return tstring
 
-def create_centered_black_white_cmap():
+def create_centered_black_white_cmap(center_val):
     """
     Creates a colormap with black in the center and white at the ends.
 
@@ -2549,13 +2554,13 @@ def create_centered_black_white_cmap():
 
     cdict = {
         'red':   [(0.0, 1.0, 1.0),  # White at 0.0
-                (0.5, 0.0, 0.0),  # Black at 0.5
+                (center_val, 0.0, 0.0),  # Black at 0.5
                 (1.0, 1.0, 1.0)], # White at 1.0
         'green': [(0.0, 1.0, 1.0),
-                (0.5, 0.0, 0.0),
+                (center_val, 0.0, 0.0),
                 (1.0, 1.0, 1.0)],
         'blue':  [(0.0, 1.0, 1.0),
-                (0.5, 0.0, 0.0),
+                (center_val, 0.0, 0.0),
                 (1.0, 1.0, 1.0)]
     }
     return colors.LinearSegmentedColormap('black_white', cdict)
