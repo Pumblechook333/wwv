@@ -1,4 +1,7 @@
 *.png
+*.jpg
+*.mp4
+*.pkl
 
 /FIGURES
 /DATA
@@ -6,4 +9,3 @@
 /SCRIPTS/nodemap
 /SCRIPTS/refmap/export
 /SCRIPTS/refmap/export_old
-*.mp4

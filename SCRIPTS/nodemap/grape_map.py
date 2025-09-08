@@ -67,9 +67,12 @@ def plotpoint(bm: Basemap, la: float, lo: float, txt: str, marker: str = 'bo', s
     # plt.text(xpt + 100000, ypt + 100000, f'{txt} (%5.1fW,%3.1fN)' % (lonpt, latpt))
 
 
-def savemap(save_path: str = 'test_map.png', show: bool = False):
-    if not save_path.endswith('.png'):
-        save_path = save_path + '.png'
+def savemap(save_path: str = 'test_map.jpg', show: bool = False):
+    if not save_path.endswith('.jpg'):
+        if save_path.endswith('.png'):
+            pass
+        else:
+            save_path = save_path + '.jpg'
 
     plt.savefig(save_path, dpi=300)
 
@@ -101,7 +104,7 @@ if __name__ == '__main__':
 
     save = True
     if save:
-        savemap('grapev1_eclipses.png', show=True)
+        savemap('grapev1_eclipses.jpg', show=True)
     else:
         plt.show()
         plt.close()

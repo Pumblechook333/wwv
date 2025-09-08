@@ -62,7 +62,7 @@ class Grape:
     # Loading ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
     def __init__(self, filename: str, convun: bool = True, filt: bool = False, med: bool = False,
-                 count: bool = False, n: int = 1):
+                 count: bool = False, n: int = 1, **kwargs):
         """
         Constructor for a Grape object
 
@@ -139,7 +139,7 @@ class Grape:
 
         # Load core Grape properties
         if filename:
-            self.load(filename, n=n)
+            self.load(filename, n=n, filt=filt, **kwargs)
 
         # Generate useful information to share between all plots
         fontsize = 22
@@ -162,8 +162,6 @@ class Grape:
         self.axcount = 0
 
         if self.loaded:
-            if filt:
-                self.butFilt()
             if convun:
                 self.units()
             if count:
@@ -171,9 +169,9 @@ class Grape:
             if med:
                 self.dnMedian()
         else:
-            raise "Grape not loaded! (self.loaded = False)"
+            print("Grape not loaded! (self.loaded = False)")
 
-    def load(self, filename: str, n: int = 1):
+    def load(self, filename: str, n: int = 1, filt=False, **kwargs):
         """
         Script to load grape data from wwv text file into Grape object
 
@@ -228,7 +226,7 @@ class Grape:
         self.TXsuntimes = suncalc.get_times(d1, WWV_LON, WWV_LAT, height=height)
 
         # Read each line of file after the header
-        for line in lines[19::n]:
+        for line in lines[19::]:
             date_time = str(line[0]).split('T')
             utc_time = str(date_time[1]).split(':')
 
@@ -254,6 +252,13 @@ class Grape:
         self.time = np.array(self.time)
         self.freq = np.array(self.freq)
         self.Vpk = np.array(self.Vpk)
+
+        if filt:
+            order = kwargs.get('filterorder', None)
+            cutoff = kwargs.get('cutofffrequency', None)
+            self.butFilt(FILTERORDER=order, FILTERBREAK=cutoff)
+
+        self.subsample(n=n)
 
         # Solar Zenith angle calculated with pvlib for all times in self.time
         sza_times = []
@@ -323,16 +328,13 @@ class Grape:
         :return: data filtered by butterworth filter to grape object
         """
 
-        if self.loaded:
-            # noinspection PyTupleAssignmentBalance
-            b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
+        # noinspection PyTupleAssignmentBalance
+        b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
 
-            self.freq_filt = filtfilt(b, a, self.freq)
-            self.Vpk_filt = filtfilt(b, a, self.Vpk)
+        self.freq_filt = filtfilt(b, a, self.freq)
+        self.Vpk_filt = filtfilt(b, a, self.Vpk)
 
-            self.filtered = True
-        else:
-            print("Frequency and Vpk not loaded!")
+        self.filtered = True
 
     def units(self, timediv: int = 3600, fdel: int = 10e6):
         """
@@ -396,6 +398,17 @@ class Grape:
             self.nightIQR = qt[2] - qt[0]
         else:
             print('No sundown detected (nightMed None)\n')
+
+    def subsample(self, n):
+        if n > 1:
+            self.time = self.time[0::n]
+            self.freq = self.freq[0::n]
+            self.Vpk = self.Vpk[0::n]
+
+            self.freq_filt = self.freq_filt[0::n]
+            self.Vpk_filt = self.Vpk_filt[0::n]
+        else:
+            pass
 
     def count(self):
         """
@@ -539,7 +552,7 @@ class Grape:
         ax2.set_ylim(0, 180)
 
         if axhline:
-            ax2.axhline(axhline, color='m', linestyle='--', linewidth=1.5)
+            ax2.axhline(axhline, color=alt_color, linestyle='--', linewidth=2)
         
         if self.axcount >= 0:
             ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
@@ -1228,19 +1241,22 @@ class Grape:
             self.szaOver(ax1)
 
         figtitle(ax1, FLABEL, **self.plot_settings)
-
-        styles = [['r-', 'g-', 'b-', 'm-'], 
-                  ['r--', 'g--', 'b--', 'm--']]
+        
+        colors = ["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"]
+        # styles = [[f'{colors[0]}-', f'{colors[1]}-', f'{colors[2]}-', f'{colors[3]}-'], 
+        #           [f'{colors[0]}--', f'{colors[1]}--', f'{colors[2]}--', f'{colors[3]}--']]
+        styles = ['solid', 'dashed']
 
         rt_data_dir = MATLAB_EXPORTS + 'export_data/r12_57/'
         files = os.listdir(rt_data_dir)
 
-        alt_color = 'm'
-        ax3 = ax1.twinx()
-        ax3.set_ylim(0, 1)
-        ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=pad)
-        ax3.spines['right'].set_position(('axes', 1.10))
-        ax3.spines['right'].set_color(alt_color)
+        alt_color = 'k'
+        # ax3 = ax1.twinx()
+        ax3 = ax1
+        ax3.set_ylim(0, 110)
+        ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2) #, direction='out', pad=pad)
+        # ax3.spines['right'].set_position(('axes', 1.10))
+        # ax3.spines['right'].set_color(alt_color)
 
         for mode, f in enumerate(files):
             df = pd.read_csv(rt_data_dir + f, header=None)
@@ -1248,7 +1264,11 @@ class Grape:
 
             lines = []
             for i in range(0, df.shape[1]):
-                l = ax3.plot(hour_range, df[i], styles[mode][i], linewidth=2)
+                l = ax3.plot(hour_range, 100*df[i], 
+                            #  styles[mode][i], 
+                             color=colors[i],
+                             ls=styles[mode],
+                             linewidth=3)
                 lines.append(l)
             
             # Create the legend
@@ -1258,7 +1278,7 @@ class Grape:
             R12_number = file_label.split('_')[0]
             ax3.set_ylabel(f'% of Rays Recieved (R12 = {R12_number})', color=alt_color, fontsize=fSize)
 
-        plt.savefig(str(figname) + "_57" + '.png', dpi=300, orientation='landscape')
+        plt.savefig(str(figname) + "_57" + '.jpg', dpi=300, orientation='landscape')
 
         return ax1
 
@@ -1308,6 +1328,8 @@ class Grape:
         # Styles for the plot markers
         styles = [['ro', 'go', 'bo', 'mo'],
                   ['rx', 'gx', 'bx', 'mx']]
+        colors = ["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"]
+        marker = ['o','x']
         sz = 10
         mew = 6
 
@@ -1316,9 +1338,9 @@ class Grape:
         for mode in range(2):
             for i in range(4):
                 if mode == 0:
-                    p = ax1.plot(0, 0, styles[mode][i], markersize=sz)
+                    p = ax1.plot(0, 0, color=colors[i], marker=marker[mode], markersize=sz)
                 else:
-                    p = ax1.plot(0, 0, styles[mode][i], markersize=sz, markeredgewidth=mew)
+                    p = ax1.plot(0, 0, color=colors[i], marker=marker[mode], markersize=sz, markeredgewidth=mew)
                 legpoints.append(p[0])
 
         # Create the legend
@@ -1341,11 +1363,15 @@ class Grape:
                 for hour in hour_range:
                     for k in range(0, mh_df.shape[1]):
                         if mh_df[k][hour] > 0:
-                            ie_scale = ((ie_df[k][hour] + 1) / max_elev) * scale
-                            if mode == 0:
-                                ax1.plot(hour, mh_df[k][hour], styles[mode][i], markersize=ie_scale)
-                            else:
-                                ax1.plot(hour, mh_df[k][hour], styles[mode][i], markersize=ie_scale, markeredgewidth=mew)
+                            initial_elevation = ie_df[k][hour]
+                            maximum_height = mh_df[k][hour]
+
+                            if maximum_height != 0:
+                                ie_scale = ((initial_elevation + 1) / max_elev) * scale
+                                if mode == 0:
+                                    ax1.plot(hour, maximum_height, color=colors[i], marker=marker[mode], markersize=ie_scale)
+                                else:
+                                    ax1.plot(hour, maximum_height, color=colors[i], marker=marker[mode], markersize=ie_scale, markeredgewidth=mew)
 
         # Set the labels and limits for the plot
         f = maxheight_files[0][0]
@@ -1358,14 +1384,14 @@ class Grape:
 
         # Overplot solar zenith angle
         if kwargs.get('sza', False):
-            self.szaOver(ax1)
+            self.szaOver(ax1, axhline=kwargs.get('axhline', None))
 
         # Set the title for the plot
         figtitle(ax1, 'Reflection Point', **self.plot_settings)
         
         # Saves the plot to the local repository
         if kwargs.get('save', True):
-            new_figname = str(figname) + "_57" + '.png'
+            new_figname = str(figname) + "_57" + '.jpg'
             plt.savefig(new_figname, bbox_inches='tight', dpi=300, orientation='landscape')
             print(f'Plot saved to {new_figname} \n')
 
@@ -1405,12 +1431,12 @@ class GrapeHandler:
                 break
 
         if self.valid:
-            self.load(dirnames, filt, comb, med, tShift, n)
+            self.load(dirnames, filt, comb, med, tShift, n, **kwargs)
         else:
             print('One or more of the provided directories do not exist on the local path! \n'
                   'Please try again. \n')
 
-    def load(self, dirnames, filt, comb, med, tShift, n):
+    def load(self, dirnames, filt, comb, med, tShift, n, **kwargs):
         """
         Script to load selected grape data into GrapeHandler object
 
@@ -1431,8 +1457,8 @@ class GrapeHandler:
                     filenames.append('./' + directory + '/' + filename.name)
 
         print('\nLoading Grapes:\n')
-        for filename in tqdm(filenames):
-            g = Grape(filename, filt=filt, med=med, n=n)
+        for i, filename in enumerate(tqdm(filenames)):
+            g = Grape(filename, filt=filt, med=med, n=n, **kwargs)
             if g.loaded:
                 self.grapes.append(g)
 
@@ -2039,7 +2065,7 @@ class GrapeHandler:
         plt.title('%i WWV 10 MHz Doppler Shift Trend at Midpoint %s, %s' %  # Title (top)
                   (startyear, decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon)),
                   fontsize=fSize)
-        plt.savefig('%s.png' % figname, dpi=300, orientation='landscape')
+        plt.savefig('%s.jpg' % figname, dpi=300, orientation='landscape')
         plt.close()
 
     def dopPlotOver(self, figname='dopPlotOver', fSize=22, ylim=None, **kwargs):
@@ -2113,7 +2139,7 @@ class GrapeHandler:
 
         figname = figname.split('/')[-1]
         plt.tight_layout()
-        plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
+        plt.savefig(str(figname) + '.jpg', dpi=300, orientation='landscape')
         # plt.close()
 
         return ax1
@@ -2524,6 +2550,12 @@ def figtitle(ax, plottype: str, **kwargs):
     unknown = '???'
 
     date =      kwargs.get('date', unknown)
+    year = int(date.split('-')[0])
+    month = int(date.split('-')[1])
+    day = int(date.split('-')[2])
+    dtdate = datetime(year, month, day)
+    fdate = dtdate.strftime("%B %#d, %Y")
+
     lat =       kwargs.get('lat', unknown)
     lon =       kwargs.get('lon', unknown)
     blat =      kwargs.get('blat', unknown)
@@ -2536,13 +2568,14 @@ def figtitle(ax, plottype: str, **kwargs):
     fontsize =  kwargs.get('fontsize', unknown)
     
     callsign = kwargs.get('callsign', 'NO CALLSIGN')
-    tstring = f'WWV 10 MHz {plottype} for {date} \n' \
+    tstring = f'WWV 10 MHz {plottype} for {fdate} \n' \
                             + '[%s %s %s | Midpoint %s %s | WWV %s %s]' \
                             % (callsign, lat, lon, blat, blon, wwvlat, wwvlon)
 
     ax.set_title(tstring, y=y, pad=pad, fontsize=fontsize)
 
     return tstring
+
 
 def create_centered_black_white_cmap(center_val):
     """
@@ -2564,3 +2597,6 @@ def create_centered_black_white_cmap(center_val):
                 (1.0, 1.0, 1.0)]
     }
     return colors.LinearSegmentedColormap('black_white', cdict)
+
+
+# %%

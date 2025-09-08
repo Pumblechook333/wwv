@@ -115,9 +115,12 @@ def plotpoint(bm: Basemap, la: float, lo: float, mode: int = 0, hop = 'r', heigh
     :return:
     '''
 
-    marker = {0: 'o', 1: 'x'}
-    colors = [{0: '#ff4a00', 1: '#78ff00', 2: '#007dff', 3: '#d500ff'}, # Light
-              {0: '#ee0000', 1: '#00ee00', 2: '#0000ee', 3: '#9700b5'}  # Dark
+    marker = {0: 'o', 1: 'X'}
+    # colors = [{0: '#ff4a00', 1: '#78ff00', 2: '#007dff', 3: '#d500ff'}, # Light
+    #           {0: '#ee0000', 1: '#00ee00', 2: '#0000ee', 3: '#9700b5'}  # Dark
+    #           ]
+    colors = [["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"], # Light
+              ["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"]  # Dark
               ]
     sz = height / 10
     alpha = 1 - (height / 400)
@@ -132,14 +135,17 @@ def plotpoint(bm: Basemap, la: float, lo: float, mode: int = 0, hop = 'r', heigh
         size = kwargs.get('markersize', 10)
         bm.plot(xpt, ypt, style, markersize=size)
     elif mode == 0:
-        bm.plot(xpt, ypt, marker[mode], color=colors[mode][hop], markersize=sz, alpha=alpha)
+        bm.plot(xpt, ypt, marker[mode], color=colors[mode][hop], markersize=sz, markeredgecolor='black', alpha=alpha)
     else:
-        bm.plot(xpt, ypt, marker[mode], color=colors[mode][hop], markersize=sz, markeredgewidth=2, alpha=alpha)
+        bm.plot(xpt, ypt, marker[mode], markerfacecolor=colors[mode][hop], markersize=sz, markeredgewidth=1, markeredgecolor='black', alpha=alpha)
 
 
 def savemap(save_path: str = 'test_map.png', show: bool = False):
     if not save_path.endswith('.png'):
-        save_path = save_path + '.png'
+        if save_path.endswith('.jpg'):
+            pass
+        else:
+            save_path = save_path + '.png'
 
     plt.savefig(save_path, dpi=300)
 
@@ -223,7 +229,7 @@ if __name__ == "__main__":
     expdir = 'SCRIPTS/refmap/export/'
     data = getdata(expdir)
 
-    figdir = 'SCRIPTS/refmap/figs'
+    figdir = 'SCRIPTS/refmap/figs_cb'
     hr_max = 25
     # hr_max = 1
 
@@ -260,8 +266,8 @@ if __name__ == "__main__":
         save = True
         show = False
         if save:
-            savemap(f'{figdir}/refpoint_dist_{hour}.png', show=show)
-            print(f'Plot {hour} saved to {figdir}/refpoint_dist_{hour}.png')
+            savemap(f'{figdir}/refpoint_dist_{hour}.jpg', show=show)
+            print(f'Plot {hour} saved to {figdir}/refpoint_dist_{hour}.jpg')
         else:
             plt.show()
             plt.close()

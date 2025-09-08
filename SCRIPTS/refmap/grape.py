@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 import suncalc
 import pandas as pd
 from pvlib import solarposition
+from scipy.signal import filtfilt, butter
 
 import pickle
 from tqdm import tqdm
@@ -52,7 +53,7 @@ MONTHINDEX = (0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334, 365)
 WWV_LAT = 40.67583063
 WWV_LON = -105.038933178
 
-NJ_DATA_PATH = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/NJ_data'
+NJ_DATA_PATH = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/bulk_beacon_data/NJ_data'
 MATLAB_EXPORTS = 'C:/Users/sabas/Documents/GitHub/PHARvis/EXPORT/'
 K2MFF_SIG = 'T000000Z_N0000020_G1_FN20vr_FRQ_WWV10'
 
@@ -322,8 +323,6 @@ class Grape:
         :return: data filtered by butterworth filter to grape object
         """
 
-        from scipy.signal import filtfilt, butter
-
         if self.loaded:
             # noinspection PyTupleAssignmentBalance
             b, a = butter(FILTERORDER, FILTERBREAK, analog=False, btype='low')
@@ -521,7 +520,7 @@ class Grape:
 
         return ax2
 
-    def szaOver(self, ax1):
+    def szaOver(self, ax1, axcount=0, axhline=None):
         fSize = self.plot_settings['fontsize']
         labelpad = self.plot_settings['pad']
 
@@ -530,11 +529,17 @@ class Grape:
         if self.axcount > 0:
             ax2 = ax1.twinx()
         else:
-            ax2 = ax1
+            if axcount > 0:
+                ax2 = ax1.twinx()
+            else:
+                ax2 = ax1
 
         ax2.plot(self.t_range, self.zentrace, alt_color, linewidth=2)
         ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
         ax2.set_ylim(0, 180)
+
+        if axhline:
+            ax2.axhline(axhline, color=alt_color, linestyle='--', linewidth=2)
         
         if self.axcount >= 0:
             ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
@@ -692,7 +697,8 @@ class Grape:
         if kwargs.get('pwr', False):
             self.powerOver(ax1)
         if kwargs.get('sza', False):
-            self.szaOver(ax1)
+            axhline = kwargs.get('axhline', None)
+            self.szaOver(ax1, axhline=axhline)
 
         # Selects title for the plot
         lbl_split = FLABEL
@@ -1145,12 +1151,12 @@ class Grape:
         # Calculates the best fits for each minute bin in each hour
         self.bestFits = []
         indexhr = 0
+        binlims = np.arange(-2.5, 2.6, 0.1)
         print('\nResolving Hours:\n')
         for hour in tqdm(hours):
             index = 0
             for srange in hour:
-                binlims = np.arange(-2.5, 2.6, 0.1)
-
+                
                 f = Fitter(srange, bins=binlims, timeout=10, distributions='common')
                 f.fit()
                 self.bestFits.append(f.get_best())
@@ -1172,9 +1178,9 @@ class Grape:
         self.timeAxis(ax1, **kwargs)
 
         # Toggles additional axis overlays
-        if kwargs.get('dop', False):
+        if kwargs.get('dop', True):
             self.dopOver(ax1, ylim=ylim)
-        if kwargs.get('sza', False):
+        if kwargs.get('sza', True):
             self.szaOver(ax1)
         
         # Plots best fit markers
@@ -1222,19 +1228,22 @@ class Grape:
             self.szaOver(ax1)
 
         figtitle(ax1, FLABEL, **self.plot_settings)
-
-        styles = [['r-', 'g-', 'b-', 'm-'], 
-                  ['r--', 'g--', 'b--', 'm--']]
+        
+        colors = ["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"]
+        # styles = [[f'{colors[0]}-', f'{colors[1]}-', f'{colors[2]}-', f'{colors[3]}-'], 
+        #           [f'{colors[0]}--', f'{colors[1]}--', f'{colors[2]}--', f'{colors[3]}--']]
+        styles = ['solid', 'dashed']
 
         rt_data_dir = MATLAB_EXPORTS + 'export_data/r12_57/'
         files = os.listdir(rt_data_dir)
 
-        alt_color = 'm'
-        ax3 = ax1.twinx()
-        ax3.set_ylim(0, 1)
-        ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=pad)
-        ax3.spines['right'].set_position(('axes', 1.10))
-        ax3.spines['right'].set_color(alt_color)
+        alt_color = 'k'
+        # ax3 = ax1.twinx()
+        ax3 = ax1
+        ax3.set_ylim(0, 110)
+        ax3.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2) #, direction='out', pad=pad)
+        # ax3.spines['right'].set_position(('axes', 1.10))
+        # ax3.spines['right'].set_color(alt_color)
 
         for mode, f in enumerate(files):
             df = pd.read_csv(rt_data_dir + f, header=None)
@@ -1242,7 +1251,11 @@ class Grape:
 
             lines = []
             for i in range(0, df.shape[1]):
-                l = ax3.plot(hour_range, df[i], styles[mode][i], linewidth=2)
+                l = ax3.plot(hour_range, 100*df[i], 
+                            #  styles[mode][i], 
+                             color=colors[i],
+                             ls=styles[mode],
+                             linewidth=3)
                 lines.append(l)
             
             # Create the legend
@@ -1252,7 +1265,7 @@ class Grape:
             R12_number = file_label.split('_')[0]
             ax3.set_ylabel(f'% of Rays Recieved (R12 = {R12_number})', color=alt_color, fontsize=fSize)
 
-        plt.savefig(str(figname) + "_57" + '.png', dpi=300, orientation='landscape')
+        plt.savefig(str(figname) + "_57" + '.jpg', dpi=300, orientation='landscape')
 
         return ax1
 
@@ -1302,6 +1315,8 @@ class Grape:
         # Styles for the plot markers
         styles = [['ro', 'go', 'bo', 'mo'],
                   ['rx', 'gx', 'bx', 'mx']]
+        colors = ["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"]
+        marker = ['o','x']
         sz = 10
         mew = 6
 
@@ -1310,9 +1325,9 @@ class Grape:
         for mode in range(2):
             for i in range(4):
                 if mode == 0:
-                    p = ax1.plot(0, 0, styles[mode][i], markersize=sz)
+                    p = ax1.plot(0, 0, color=colors[i], marker=marker[mode], markersize=sz)
                 else:
-                    p = ax1.plot(0, 0, styles[mode][i], markersize=sz, markeredgewidth=mew)
+                    p = ax1.plot(0, 0, color=colors[i], marker=marker[mode], markersize=sz, markeredgewidth=mew)
                 legpoints.append(p[0])
 
         # Create the legend
@@ -1335,11 +1350,15 @@ class Grape:
                 for hour in hour_range:
                     for k in range(0, mh_df.shape[1]):
                         if mh_df[k][hour] > 0:
-                            ie_scale = ((ie_df[k][hour] + 1) / max_elev) * scale
-                            if mode == 0:
-                                ax1.plot(hour, mh_df[k][hour], styles[mode][i], markersize=ie_scale)
-                            else:
-                                ax1.plot(hour, mh_df[k][hour], styles[mode][i], markersize=ie_scale, markeredgewidth=mew)
+                            initial_elevation = ie_df[k][hour]
+                            maximum_height = mh_df[k][hour]
+
+                            if maximum_height != 0:
+                                ie_scale = ((initial_elevation + 1) / max_elev) * scale
+                                if mode == 0:
+                                    ax1.plot(hour, maximum_height, color=colors[i], marker=marker[mode], markersize=ie_scale)
+                                else:
+                                    ax1.plot(hour, maximum_height, color=colors[i], marker=marker[mode], markersize=ie_scale, markeredgewidth=mew)
 
         # Set the labels and limits for the plot
         f = maxheight_files[0][0]
@@ -1352,14 +1371,14 @@ class Grape:
 
         # Overplot solar zenith angle
         if kwargs.get('sza', False):
-            self.szaOver(ax1)
+            self.szaOver(ax1, axhline=kwargs.get('axhline', None))
 
         # Set the title for the plot
         figtitle(ax1, 'Reflection Point', **self.plot_settings)
         
         # Saves the plot to the local repository
         if kwargs.get('save', True):
-            new_figname = str(figname) + "_57" + '.png'
+            new_figname = str(figname) + "_57" + '.jpg'
             plt.savefig(new_figname, bbox_inches='tight', dpi=300, orientation='landscape')
             print(f'Plot saved to {new_figname} \n')
 
@@ -2041,22 +2060,26 @@ class GrapeHandler:
         if ylim is None:
             ylim = ydoplims(self.valscomb, 'f')
 
-        labelpad = 20
-
         fig = plt.figure(figsize=(19, 10), layout='tight')  # inches x, y with 72 dots per inch
         ax1 = fig.add_subplot(111)
 
-        grape0 = self.grapes[0]
-        # grape0.sunPosOver(fSize)
+        for g in self.grapes:
+            if (g.t_range.min() < 1) and (g.t_range.max() > 23):
+                grape0 = g
+                break
+
+        tgt = kwargs.get('tgt', len(self.grapes)-1)
 
         for i in range(len(self.grapes)):
             frange = self.valscomb[i]
             trange = self.timecomb[i]
 
-            if i == len(self.grapes) - 1:
+            if i == tgt:
                 ax1.plot(trange, frange, 'r', linewidth=2)
             else:
-                ax1.plot(trange, frange, 'k', linewidth=2, alpha=(i / len(self.grapes) + 0.1))
+                prox = abs(i - tgt) / len(self.grapes)  # Smaller value when close to target
+                prox_compliment = 1 - prox              # Larger value when close to target
+                ax1.plot(trange, frange, 'k', linewidth=2, alpha=(prox_compliment))
 
         ax1.set_xlabel('UTC Hour', fontsize=fSize)
         ax1.set_ylabel(FLABEL, fontsize=fSize)
@@ -2068,20 +2091,29 @@ class GrapeHandler:
         ax1.grid(axis='x', alpha=1)
         ax1.grid(axis='y', alpha=0.5)
 
-        cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'), pad = 0.08)
         tick_labels = kwargs.get('tl',
-                                 ['', 'Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+                    ['Oct 7', 'Oct 8', 'Oct 9', 'Oct 10', 'Oct 11', 'Oct 12', 'Oct 13', 'Oct 14'])
+        step = 2 / (len(tick_labels))
+        if tgt == len(self.grapes)-1:
+            cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap='Greys'), pad = 0.08)
+            ticks = np.arange(-1 + step, 1 + step, step)
+        else:
+            center_val = ((tgt) / len(tick_labels))
+            cmap = create_centered_black_white_cmap(center_val)
+            cbar = plt.colorbar(cm.ScalarMappable(norm=colors.CenteredNorm(), cmap=cmap), pad = 0.08)
+            ticks = np.arange(-1 + step, 1 + step, step) - (step / 2)
+        
+        cbar.ax.set_yticks(ticks) 
         cbar.ax.set_yticklabels(tick_labels)
         cbar.ax.tick_params(labelsize=fSize - 2)
         cbar.ax.set_ylabel('Date of Trace', fontsize=fSize)
 
-        alt_color = 'c'
-        ax2 = ax1.twinx()
-        ax2.plot(grape0.t_range, grape0.zentrace, alt_color, linewidth=2)
-        ax2.set_ylabel('Solar Zenith Angle (°)', color=alt_color, fontsize=fSize)
-        ax2.set_ylim(0, 180)
-        ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
-        ax2.spines['right'].set_color(alt_color)
+        ticklabs = cbar.ax.get_yticklabels()
+        ticklabs[tgt].set_weight("bold")
+        ticklabs[tgt].set_color("red")
+
+        if kwargs.get('sza', False):
+            grape0.szaOver(ax1, axcount=1)
 
         plt.suptitle('Doppler Residual Traces (' + grape0.date + ' - ' + self.grapes[-1].date + ')',
                      fontsize=fSize + 10, ha='center', weight='bold', x=0.45)  # Title (top)
@@ -2092,9 +2124,12 @@ class GrapeHandler:
                      decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)),
                   fontsize=fSize, ha='center')
 
+        figname = figname.split('/')[-1]
         plt.tight_layout()
         plt.savefig(str(figname) + '.png', dpi=300, orientation='landscape')
-        plt.close()
+        # plt.close()
+
+        return ax1
 
     def dopPlotOver_copy(self, figname='dopPlotOver', fSize=22, ylim=None, **kwargs):
 
@@ -2502,6 +2537,12 @@ def figtitle(ax, plottype: str, **kwargs):
     unknown = '???'
 
     date =      kwargs.get('date', unknown)
+    year = int(date.split('-')[0])
+    month = int(date.split('-')[1])
+    day = int(date.split('-')[2])
+    dtdate = datetime(year, month, day)
+    fdate = dtdate.strftime("%B %#d, %Y")
+
     lat =       kwargs.get('lat', unknown)
     lon =       kwargs.get('lon', unknown)
     blat =      kwargs.get('blat', unknown)
@@ -2514,10 +2555,35 @@ def figtitle(ax, plottype: str, **kwargs):
     fontsize =  kwargs.get('fontsize', unknown)
     
     callsign = kwargs.get('callsign', 'NO CALLSIGN')
-    tstring = f'WWV 10 MHz {plottype} for {date} \n' \
+    tstring = f'WWV 10 MHz {plottype} for {fdate} \n' \
                             + '[%s %s %s | Midpoint %s %s | WWV %s %s]' \
                             % (callsign, lat, lon, blat, blon, wwvlat, wwvlon)
 
     ax.set_title(tstring, y=y, pad=pad, fontsize=fontsize)
 
     return tstring
+
+
+def create_centered_black_white_cmap(center_val):
+    """
+    Creates a colormap with black in the center and white at the ends.
+
+    Returns:
+        A matplotlib.colors.LinearSegmentedColormap object.
+    """
+
+    cdict = {
+        'red':   [(0.0, 1.0, 1.0),  # White at 0.0
+                (center_val, 0.0, 0.0),  # Black at 0.5
+                (1.0, 1.0, 1.0)], # White at 1.0
+        'green': [(0.0, 1.0, 1.0),
+                (center_val, 0.0, 0.0),
+                (1.0, 1.0, 1.0)],
+        'blue':  [(0.0, 1.0, 1.0),
+                (center_val, 0.0, 0.0),
+                (1.0, 1.0, 1.0)]
+    }
+    return colors.LinearSegmentedColormap('black_white', cdict)
+
+
+# %%
