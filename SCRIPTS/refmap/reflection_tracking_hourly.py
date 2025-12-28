@@ -77,10 +77,6 @@ def plotrefs(bm: Basemap = None, data: dict = None, hour: int = 0):
 def basemap_setup():
     w = 3e6
     h = 1e6
-    ywa = -3
-    xwa = -3
-    # m = Basemap(width=w, height=h, projection='lcc',
-    #             resolution='c', lat_1=35. + ywa, lat_2=55. + ywa, lat_0=40. + ywa, lon_0=-95. + xwa)
 
     m = Basemap(width=w, height=h, lat_0=BOUNCE[0], lon_0=BOUNCE[1],
                 projection='lcc', resolution='c')
@@ -116,9 +112,6 @@ def plotpoint(bm: Basemap, la: float, lo: float, mode: int = 0, hop = 'r', heigh
     '''
 
     marker = {0: 'o', 1: 'X'}
-    # colors = [{0: '#ff4a00', 1: '#78ff00', 2: '#007dff', 3: '#d500ff'}, # Light
-    #           {0: '#ee0000', 1: '#00ee00', 2: '#0000ee', 3: '#9700b5'}  # Dark
-    #           ]
     colors = [["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"], # Light
               ["#F05039", "#EEBAB4", "#3D65A5", "#A8B6CC"]  # Dark
               ]
@@ -231,7 +224,6 @@ if __name__ == "__main__":
 
     figdir = 'SCRIPTS/refmap/figs_cb'
     hr_max = 25
-    # hr_max = 1
 
     for hour in range(0, hr_max):
 

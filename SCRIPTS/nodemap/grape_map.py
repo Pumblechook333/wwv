@@ -11,9 +11,12 @@ def basemap_setup():
     m = Basemap(width=w, height=h, projection='lcc',
                 resolution='c', lat_1=35. + ywa, lat_2=55. + ywa, lat_0=40. + ywa, lon_0=-95. + xwa)
 
+    watercolor = '#A8B6CC'
+    landcolor = "#EEBAB4"
+    
     m.drawcoastlines()
-    m.drawmapboundary(fill_color='aqua')
-    m.fillcontinents(color='coral', lake_color='aqua')
+    m.drawmapboundary(fill_color=watercolor)
+    m.fillcontinents(color=landcolor, lake_color=watercolor)
     m.drawstates()
 
     return m
@@ -34,7 +37,7 @@ def drawshape(bm: Basemap, shppth: str, shpn: str = 'Shape', color: str = 'k'):
     return bm
 
 
-def plotgrapes(m):
+def plotgrapes(m, color='k'):
     with open('node_latlons.txt', 'r') as lines:
         for line in lines:
             if line[0:2] == 'N0':
@@ -44,10 +47,10 @@ def plotgrapes(m):
                 lon = splitline[2]
 
                 xpt, ypt = m(lon, lat)
-                m.plot(xpt, ypt, 'ko')  # plot a blue dot there
+                m.plot(xpt, ypt, marker='o', color=color)  # plot a blue dot there
 
 
-def plotpoint(bm: Basemap, la: float, lo: float, txt: str, marker: str = 'bo', sz: int = 5):
+def plotpoint(bm: Basemap, la: float, lo: float, txt: str, marker: str = 'bo', color: str = 'k', sz: int = 5):
     '''
     Method to plot point on basemap (with optional annotation)
 
@@ -62,7 +65,7 @@ def plotpoint(bm: Basemap, la: float, lo: float, txt: str, marker: str = 'bo', s
     lon, lat = lo, la  # Location of WWV
     xpt, ypt = bm(lon, lat)
     # lonpt, latpt = m(xpt, ypt, inverse=True)
-    bm.plot(xpt, ypt, marker, markersize=sz)  # plot a blue dot there
+    bm.plot(xpt, ypt, marker=marker, color=color, markersize=sz)  # plot a blue dot there
 
     # plt.text(xpt + 100000, ypt + 100000, f'{txt} (%5.1fW,%3.1fN)' % (lonpt, latpt))
 
@@ -87,18 +90,20 @@ if __name__ == '__main__':
     m = basemap_setup()
     drawlines(m)
 
-    shape_path = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/2023eclipse_shapefiles/umbra_lo'
+    shape_path = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/eclipse_data/annular/2023eclipse_shapefiles/umbra_lo'
     shape_name = '2023 Eclipse'
-    drawshape(m, shape_path, shape_name, 'y')
+    drawshape(m, shape_path, shape_name, '#F05039')
 
-    shape_path = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/2024eclipse_shapefiles/umbra_lo'
+    shape_path = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/eclipse_data/total/2024eclipse_shapefiles/umbra_lo'
     shape_name = '2024 Eclipse'
-    drawshape(m, shape_path, shape_name, 'm')
+    drawshape(m, shape_path, shape_name, '#3D65A5')
 
-    plotgrapes(m)
+    markercolor = '#3d65a5'
 
-    plotpoint(m, 40.6776, -105.0461, 'WWV', 'g*', 20)
-    plotpoint(m, 40.742018, -74.178975, 'K2MFF', 'g^', 15)
+    plotgrapes(m, 'k')
+
+    plotpoint(m, 40.6776, -105.0461, 'WWV', '*' , markercolor, 20)
+    plotpoint(m, 40.742018, -74.178975, 'K2MFF', '^' , markercolor, 15)
 
     plt.title("Active Grape V1 Stations in North America (2023)")
 

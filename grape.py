@@ -25,7 +25,7 @@ import os
 import imageio as imageio
 from re import sub
 from fitter import Fitter
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 import suncalc
 import pandas as pd
 from pvlib import solarposition
@@ -254,8 +254,8 @@ class Grape:
         self.Vpk = np.array(self.Vpk)
 
         if filt:
-            order = kwargs.get('filterorder', None)
-            cutoff = kwargs.get('cutofffrequency', None)
+            order = kwargs.get('filterorder', 3)
+            cutoff = kwargs.get('cutofffrequency', 0.005)
             self.butFilt(FILTERORDER=order, FILTERBREAK=cutoff)
 
         self.subsample(n=n)
@@ -723,6 +723,112 @@ class Grape:
             print(f'Plot saved to {figname}.png \n')
 
         return ax1
+    
+    def dopPowGoesPlot(self, figname: str, ylim: list = None, fSize: int = 22, axis2: str = None, val: str = None,
+                   end_times: bool = False, local: bool = False, **kwargs):
+        """
+        Plot the doppler shift and relative power over time of the signal
+
+        :param figname: Filename for the produced .png plot image
+        :param ylim: Provide a python list containing minimum and maximum doppler shift in Hz
+         for the data (default = [-1, 1])
+        :param fSize: Font size to scale all plot text (default = 22)
+        :param axis2: String hint for second axis plot
+        :param val: String hint for primary axis plot ('pwr' for power, default to doppler)
+        :param end_times: Setting for displaying end time suntime markers
+        :param local: Setting for displaying time axis as midpoint local time
+
+        :return: .png plot into local repository
+        """
+        # Checks if the data has been converted to the proper units
+        if not self.converted:
+            raise('Data units not yet converted! \n'
+                  'Please try again.')
+        
+        # Initializes figure and axis
+        fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, figsize=(19, 10))
+
+        # Sets up time axis
+        self.timeAxis(ax1, **kwargs)
+
+        ax1.set_xlabel(" ")
+        ax1.tick_params(axis='x',          # Apply to the x-axis
+               labelbottom=False, # Hide the label text
+               bottom=False)      # Hide the tick marks
+
+        # Toggles sun position overlay
+        spo = kwargs.get('SPO', False)
+        if spo: self.sunPosOver(fSize, end_times=end_times, local=local)
+
+        # Toggles additional axis overlays
+        if kwargs.get('dop', False):
+            self.dopOver(ax1, ylim=ylim)
+        if kwargs.get('pwr', False):
+            self.powerOver(ax1)
+        if kwargs.get('sza', False):
+            axhline = kwargs.get('axhline', None)
+            self.szaOver(ax1, axhline=axhline)
+
+        # Selects title for the plot
+        lbl_split = FLABEL
+        figtitle(ax1, lbl_split + " and GOES X-ray Flux", **self.plot_settings)
+
+        # Plot GOES data
+        path = 'C:/Users/sabas/Documents/NJIT/Work/wwv/DATA/GOES_flare23.csv'
+        df = pd.read_csv(path)
+
+        d = datetime(2023,11,28)
+        flaredate = df[pd.to_datetime(df['Universal Time']) >= d]
+        longwave = flaredate[['Universal Time', 'GOES secondary  Longwave']]
+        longwave.reset_index(inplace=True)
+
+        import math
+        x = longwave['Universal Time']
+        y = [math.log10(i) for i in longwave['GOES secondary  Longwave']]
+
+        fSize = self.plot_settings['fontsize']
+        labelpad = self.plot_settings['pad']
+        lw = 2
+
+        ax2.plot(x, y, linewidth=lw)
+        ax2.set_xlabel('Time UT (Hours)', fontsize=fSize)
+        ax2.set_xlim(0, 24)
+
+        # Set xticks to show every other label
+        xticks = ax2.get_xticks()
+        xticklabels = [x[i].split(' ')[1].split(':')[0] for i in range(len(x))]
+        xticklabels = [(xt if xt[0] != '0' else xt[1]) for xt in xticklabels]
+        # xticklabels = np.array([(int(xt) + loc_adj) for xt in xticklabels])
+        # xticklabels = neg_time(xticklabels)
+
+        # Adjust the labeled time for midpoint locality
+        nth_sec = 120
+        xt = xticks[::nth_sec]
+        xt.append(1320+120)
+        xtl = xticklabels[::nth_sec]
+        xtl.append('24')
+
+        ax2.set_xticks(xt, xtl)
+        ax2.tick_params(axis='x', labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax2.tick_params(axis='y', labelsize=fSize - 2, direction='out', pad=labelpad)
+        ax2.grid(axis='x', alpha=1)
+        ax2.grid(axis='y', alpha=0.5)
+
+        # Set ylabel
+        ax2.set_ylabel('Irradiance (log₁₀(W/m²))', fontsize=fSize, labelpad=labelpad)
+
+        original_pos = ax2.get_position()
+
+        new_height = 0.22
+        new_bottom = 0.24
+        ax2.set_position([original_pos.x0, new_bottom, original_pos.width, new_height])
+
+        # Saves the plot to the local repository
+        if kwargs.get('save', True):
+            plt.savefig(str(figname) + '.png', bbox_inches='tight', dpi=300, orientation='landscape')
+            print(f'Plot saved to {figname}.png \n')
+
+        return (ax1, ax2)
 
     def distPlot(self, valname, figname):
         """
@@ -1638,7 +1744,7 @@ class GrapeHandler:
             grape.bestFitsPlot(valname, dirname + '/' + figname + '_' + str(count), minBinLen=minBinLen, ylim=ylim)
             count += 1
 
-    def tileTrend(self, figname, ylim=None, minBinLen=5, fSize=22):
+    def tileTrend(self, figname, ylim=None, minBinLen=5, fSize=22, **kwargs):
         """
         Plots the 25th, 40th, 50th, 60th, and 75th quartiles for the monthly doppler shift of specified timebins of
         contained grapes
@@ -1655,11 +1761,51 @@ class GrapeHandler:
         qts = [q25, q40, q50, q60, q75]
         qstyle = [('r', 0.25), ('b', 0.25), ('k', 1), ('b', 0.25), ('r', 0.25)]
 
+        # Accept user string input for datetime to ignore in 
+        # the following quartile calculations
+        exclude = kwargs.get('exclude', None)
+        if exclude:
+            ex_times = []
+            for e in exclude:
+                format_data = "%Y-%m-%dT%H:%M"
+                ex_times.append((datetime.strptime(e[0], format_data), 
+                                datetime.strptime(e[1], format_data))
+                                )
+
         index = 0
-        while not index > self.valslength:
+        while not index > self.valslength: 
             secs = []
-            for vals in self.valscomb:
-                secs += vals[index:index + secrange].tolist()
+            for v, vals in enumerate(self.valscomb):
+
+                # Check to see if current grape contains excluded time
+                ex_flag = False
+                for e in ex_times:
+                    if (self.grapes[v].date in str(e[0])):
+                        ex_flag = True
+                    else:
+                        pass
+                
+                # If there is excluded time, only add included time to calculation
+                if ex_flag:
+                    # Create a datetime object for the midnight of the same day
+                    midnight = datetime.combine(e[0].date(), time(0, 0, 0))
+                    post1 = (e[0] - midnight).total_seconds()
+                    post2 = (e[1] - midnight).total_seconds()
+
+                    # Get the corresponding times and values of the current grape
+                    vals_to_add = vals[index:index + secrange].tolist()
+                    secs_to_add = self.timecomb[v][index:index + secrange].tolist()
+                    
+                    # Check if either part of the current time range overlaps with the excluded region
+                    if (secs_to_add[0] >= post1 
+                        and secs_to_add[0] <= post2) or (secs_to_add[1] >= post1 
+                                                            and secs_to_add[1] <= post2):
+                        pass
+                    else:
+                        pass
+                else:
+                    secs += vals[index:index + secrange].tolist()
+
             qt = np.quantile(secs, qmarks)
             for i, q in enumerate(qts):
                 q.append(qt[i])
@@ -1678,7 +1824,6 @@ class GrapeHandler:
             ax1.plot(t_range, qts[i], qstyle[i][0], alpha=qstyle[i][1], linewidth=2)
 
         grape0 = self.grapes[0]
-        # self.grapes[0].sunPosOver(fSize)
 
         labelpad = 20
 
@@ -1700,9 +1845,14 @@ class GrapeHandler:
         ax2.tick_params(axis='y', colors=alt_color, labelsize=fSize - 2, direction='out', pad=labelpad)
         ax2.spines['right'].set_color(alt_color)
 
+        try:
+            callsign = grape0.callsign
+        except:
+            callsign = 'K2MFF'
+
         plt.title('WWV 10 MHz Doppler Shift Plot (Q 25, 40, 50, 60, 75) \n'  # Title (top)
                   + '[%s %s %s | Midpoint %s %s | WWV %s %s] \n'
-                  % (grape0.callsign,
+                  % (callsign,
                      decdeg2dms(self.grapes[0].lat), decdeg2dms(self.grapes[0].lon),
                      decdeg2dms(self.grapes[0].blat), decdeg2dms(self.grapes[0].blon),
                      decdeg2dms(WWV_LAT), decdeg2dms(WWV_LON)) +
